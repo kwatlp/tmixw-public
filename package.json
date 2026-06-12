@@ -1,0 +1,128 @@
+{
+  "name": "local-ai-assistant-vtt",
+  "version": "0.8.4",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "description": "tmixw — local voice-to-text-to-LLM narrative stack (Phase 1 pipeline, Phase 2 character + lore including vector retrieval).",
+  "scripts": {
+    "pipeline:test": "node core/pipeline_test.js",
+    "fixtures:test": "node scripts/run_fixtures.js",
+    "memory:test": "node scripts/memory_test.js",
+    "acceptance:test": "node scripts/acceptance_test.js",
+    "templates:test": "node scripts/templates_test.js",
+    "imagegen:test": "node scripts/imagegen_test.js",
+    "inference:test": "node scripts/inference_test.js",
+    "context:test": "node scripts/context_test.js",
+    "evals:run": "node scripts/run_evals.js",
+    "narrative:ab": "node scripts/narrative_ab.js",
+    "session:reset": "node core/session_reset.js",
+    "session:reset:hard": "node core/session_reset.js --hard",
+    "mic:list": "node core/mic_list.js",
+    "char:onboard": "node core/onboard_character.js",
+    "char:show": "node core/character_cli.js show",
+    "char:path": "node core/character_cli.js path",
+    "char:open": "node core/character_cli.js open",
+    "char:set": "node core/character_cli.js set",
+    "char:import": "node core/character_cli.js import-json",
+    "lore:add": "node core/lore_cli.js add",
+    "lore:list": "node core/lore_cli.js list",
+    "lore:show": "node core/lore_cli.js show",
+    "lore:remove": "node core/lore_cli.js remove",
+    "lore:edit": "node core/lore_cli.js edit",
+    "lore:import": "node core/lore_cli.js import",
+    "lore:test": "node core/lore_cli.js test",
+    "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "node scripts/check-phase4-resources.js && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false vite build && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "electron:build:dir": "cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false vite build && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir"
+  },
+  "dependencies": {
+    "@xenova/transformers": "^2.17.2",
+    "electron-log": "^5.4.3",
+    "koffi": "^2.9.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "playwright-core": "^1.60.0",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "build": {
+    "appId": "com.tmixw",
+    "productName": "tmixw",
+    "forceCodeSigning": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*.js",
+      "electron/**/*.cjs",
+      "core/**/*.js",
+      "core/**/*.json",
+      "!core/recordings/**",
+      "prompts/**/*",
+      "renderer/dist/**/*",
+      "art/**",
+      "!art/Life Forms Icon/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/koffi/**",
+      "**/node_modules/electron-log/**"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "executableName": "tmixw",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "tmixw"
+    },
+    "mac": {
+      "icon": "build/icon.icns"
+    },
+    "extraResources": [
+      {
+        "from": "resources/bin/",
+        "to": "bin/",
+        "filter": [
+          "README.md"
+        ]
+      },
+      {
+        "from": "resources/models/",
+        "to": "models/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  }
+}

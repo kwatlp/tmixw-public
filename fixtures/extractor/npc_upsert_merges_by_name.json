@@ -1,0 +1,23 @@
+{
+  "name": "npc_upsert_merges_by_name",
+  "kind": "diff-apply",
+  "notes": "Baseline: NPC diffs upsert by name into npcs[] — the correct route for non-player characters.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael" },
+    "npcs": [{ "name": "Mara", "status": "alive", "notes": "blacksmith" }],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "diff": { "npcs": [{ "name": "Mara", "status": "wounded", "notes": "blacksmith" }] },
+  "expect": {
+    "world_after": {
+      "character": { "name": "Kael" },
+      "npcs": [{ "name": "Mara", "status": "wounded", "notes": "blacksmith" }]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "null_deletes_character_field",
+  "kind": "diff-apply",
+  "notes": "null values in player_character delete the key — must survive the v2 guard logic.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael", "age": "30" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "diff": { "player_character": { "age": null } },
+  "expect": {
+    "world_after": { "character": { "name": "Kael" } },
+    "absent": ["character.age"]
+  }
+}

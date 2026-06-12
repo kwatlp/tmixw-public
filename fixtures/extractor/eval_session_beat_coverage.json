@@ -1,0 +1,25 @@
+{
+  "name": "eval_session_beat_coverage",
+  "kind": "extraction-eval",
+  "notes": "Beat coverage for the v0.5.0 memory tiers: a consequential turn must produce a session_beat that names the actors involved (scene/chapter summaries are built from beats — a missing or vague beat is lost story).",
+  "world_before": {
+    "schemaVersion": 3,
+    "character": { "name": "Kael", "class": "ranger" },
+    "npcs": [{ "name": "Mara", "status": "wounded", "notes": "blacksmith" }],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "transcript": "I carry Mara to the shrine on the hill and promise her I'll find whoever attacked the forge.",
+  "expect": {
+    "assertions": [
+      { "path": "diff.session_beat", "present": true },
+      { "path": "diff.session_beat", "matches": "Mara" }
+    ]
+  }
+}

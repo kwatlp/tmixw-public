@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tmixw/templates/manifest.schema.json",
+  "title": "TemplateManifest",
+  "description": "Schema for a tmíxʷ story template (FEATURE_CREEP.md #1). A template is a bundled folder containing this manifest plus its referenced files. The (not-yet-built) loader reads `seed` into a fresh world_state.json and applies `narrator` to the narrative system prompt. NOTE: `seed.bestiary` targets a world_state section that does not exist yet — see templates/README.md.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "narrator", "seed"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1, "description": "Manifest schema version." },
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Stable kebab-case id; also the folder name." },
+    "name": { "type": "string", "description": "Display name shown in the new-world picker." },
+    "tagline": { "type": "string" },
+    "author": { "type": "string" },
+    "genre": { "type": "string" },
+    "version": { "type": "string", "description": "Template content version (semver-ish)." },
+    "createdAt": { "type": "string" },
+    "summary": { "type": "string" },
+
+    "narrator": {
+      "type": "object",
+      "required": ["systemPromptFile"],
+      "additionalProperties": false,
+      "properties": {
+        "systemPromptFile": { "type": "string", "description": "Path (relative to the manifest) to the narrator system-prompt override, e.g. system_prompt.md." },
+        "promptMode": { "type": "string", "enum": ["override", "append"], "default": "override", "description": "Replace the base narrative system prompt, or append to it." },
+        "config": {
+          "type": "object",
+          "description": "Optional per-template narrative gen overrides, merged over config.json.narrative.",
+          "additionalProperties": true,
+          "properties": {
+            "lengthPreset": { "type": "string" },
+            "temperature": { "type": "number" },
+            "top_p": { "type": "number" },
+            "top_k": { "type": "number" },
+            "rep_pen": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "gm": {
+      "type": "object",
+      "description": "GM-only reference data. The loader exposes this to the narrator as reference context but NEVER writes it into player-facing world_state.",
+      "additionalProperties": true,
+      "properties": {
+        "bestiaryFile": { "type": "string", "description": "Path to a GM-only bestiary JSON (full stat blocks). Reference only." },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "characterSchema": {
+      "type": "object",
+      "description": "Documentation of the character-card keys the narrator will produce. NOT seeded unless also present in seed.character.",
+      "additionalProperties": true
+    },
+
+    "seed": {
+      "type": "object",
+      "description": "Merged into a fresh world_state.json. Keys mirror world_state sections (see core/world_state.js → defaultWorldState).",
+      "additionalProperties": true,
+      "properties": {
+        "current_location": { "type": "string" },
+        "character": { "type": "object", "description": "Freeform character card. {} means the narrator's onboarding fills it." },
+        "npcs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "status": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "quests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title"],
+            "properties": {
+              "title": { "type": "string" },
+              "status": { "type": "string", "default": "active" }
+            }
+          }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "lorebook": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "content"],
+            "properties": {
+              "title": { "type": "string" },
+              "content": { "type": "string" },
+              "keywords": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "session_beats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Opening beats as plain strings; the loader wraps them into v3 beat objects (see makeSessionBeat)."
+        },
+        "bestiary": {
+          "type": "array",
+          "description": "PLAYER-FACING discovered-creature field notes. NEW section — not in the world_state schema yet (see templates/README.md). Seeded empty so play begins with an empty journal the player fills as they meet creatures.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "rank": { "type": "string" },
+              "discovered": { "type": "boolean" },
+              "encounters": { "type": "integer" },
+              "knownTraits": { "type": "array", "items": { "type": "string" } },
+              "notes": { "type": "string" },
+              "firstSeen": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "onboarding": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "runAtStart": { "type": "string", "description": "Signal to the narrator/loader for the opening flow, e.g. 'character-forge'." },
+        "firstMessageHint": { "type": "string" },
+        "boardSize": { "type": "integer" },
+        "startingRank": { "type": "string" }
+      }
+    }
+  }
+}

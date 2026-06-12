@@ -1,0 +1,303 @@
+.wizard-root {
+  position: relative;
+  z-index: 10;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: radial-gradient(
+      circle at 20% 0%,
+      rgba(212, 175, 55, 0.12),
+      transparent 45%
+    ),
+    #0f0c14;
+}
+
+.wizard-inner {
+  width: min(560px, 100%);
+}
+
+.wizard-panel {
+  background: rgba(25, 25, 30, 0.92);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.wizard-kicker {
+  font-family: var(--sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: var(--gold);
+  margin: 0 0 8px;
+}
+
+.wizard-title {
+  font-family: var(--serif);
+  font-size: clamp(2.4rem, 6vw, 3.2rem);
+  font-weight: 600;
+  color: var(--gold);
+  margin: 0 0 12px;
+}
+
+.wizard-heading {
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin: 0 0 12px;
+}
+
+.wizard-tagline {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  color: var(--bone);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.wizard-copy {
+  font-family: var(--sans);
+  color: var(--bone);
+  line-height: 1.55;
+  margin: 0 0 16px;
+}
+
+.wizard-label {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+
+.wizard-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 12, 20, 0.9);
+  color: var(--bone);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+}
+
+.wizard-primary,
+.wizard-secondary {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  border-radius: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.wizard-primary {
+  background: linear-gradient(
+    135deg,
+    rgba(212, 175, 55, 0.95),
+    rgba(166, 61, 64, 0.85)
+  );
+  color: #1a1410;
+  font-weight: 600;
+}
+
+.wizard-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.wizard-secondary {
+  background: transparent;
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--gold);
+}
+
+.wizard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.wizard-muted {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 12px;
+}
+
+.wizard-error {
+  font-family: var(--sans);
+  color: var(--oxblood);
+  margin: 8px 0 0;
+}
+
+.wizard-model-meta {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wizard-model-name {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  word-break: break-all;
+  color: var(--bone);
+}
+
+.wizard-recs {
+  margin-top: 18px;
+}
+
+.wizard-recs ul {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+  color: var(--bone);
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.wizard-recs a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.wizard-recs a:hover {
+  border-bottom-color: var(--gold);
+}
+
+/* --- Progress bar --- */
+.wizard-download-progress {
+  margin: 16px 0;
+}
+
+.wizard-progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.wizard-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(212, 175, 55, 0.9),
+    rgba(166, 61, 64, 0.85)
+  );
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.wizard-cancel {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  border: 1px solid rgba(166, 61, 64, 0.6);
+  background: transparent;
+  color: var(--oxblood);
+  margin-top: 10px;
+}
+
+.wizard-cancel:hover {
+  background: rgba(166, 61, 64, 0.12);
+}
+
+/* --- Success message --- */
+.wizard-success {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(50, 120, 70, 0.15);
+  border: 1px solid rgba(80, 180, 100, 0.3);
+}
+
+.wizard-success p {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  color: rgba(140, 220, 160, 0.95);
+}
+
+.wizard-success code {
+  font-size: 0.8rem;
+  word-break: break-all;
+  color: var(--muted);
+}
+
+/* --- Radio card model options --- */
+.wizard-model-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.wizard-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.wizard-radio-card:has(input:checked) {
+  border-color: rgba(212, 175, 55, 0.6);
+  background: rgba(212, 175, 55, 0.06);
+}
+
+.wizard-radio-card input[type="radio"] {
+  margin-top: 3px;
+  accent-color: var(--gold);
+}
+
+.wizard-radio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--sans);
+  color: var(--bone);
+}
+
+.wizard-radio-content strong {
+  font-size: 0.95rem;
+}
+
+.wizard-radio-content .wizard-muted {
+  margin-top: 0;
+  font-size: 0.8rem;
+}
+
+/* --- Install instructions --- */
+.wizard-install-instructions {
+  margin: 8px 0;
+}
+
+.wizard-code-block {
+  display: block;
+  padding: 10px 14px;
+  margin: 8px 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: monospace;
+  font-size: 0.88rem;
+  color: var(--gold);
+  user-select: all;
+}

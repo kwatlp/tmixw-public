@@ -1,0 +1,26 @@
+{
+  "name": "eval_current_location",
+  "kind": "extraction-eval",
+  "notes": "v0.7.0 D4: current_location tracks where the player IS, set when the turn moves them. The player leaves a known location for a new one; both transcript and narrative name the destination. Regex assertion (small-model wording varies).",
+  "world_before": {
+    "schemaVersion": 3,
+    "character": { "name": "Kael", "class": "ranger" },
+    "npcs": [{ "name": "Brunhild", "status": "alive", "notes": "innkeeper of the Gilded Flagon" }],
+    "quests": [],
+    "locations": [{ "name": "Gilded Flagon", "description": "an inn in Harborton" }],
+    "current_location": "Gilded Flagon",
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "transcript": "I settle my tab with Brunhild, step out of the inn, and walk down to the Harborton docks.",
+  "narrative": "The harbor wind hits you the moment you leave the Flagon's warmth. Gulls wheel over the masts as you come down the hill to the Harborton docks, where longshoremen are still unloading a grain barge by lantern light.",
+  "expect": {
+    "assertions": [
+      { "path": "diff.current_location", "matches": "dock" }
+    ]
+  }
+}

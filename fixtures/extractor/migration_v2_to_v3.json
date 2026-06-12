@@ -1,0 +1,30 @@
+{
+  "name": "migration_v2_to_v3",
+  "kind": "migrate",
+  "notes": "v2 saves carry bare-string session_beats; v3 wraps them as { id, ts: null, text, sceneId: null } and adds scenes/chapters. Beat ids are generated, so expectations assert only stable fields. Runner also asserts idempotency.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [
+      "Kael arrived at the harbor at dusk.",
+      "A stranger offered Kael a sealed letter."
+    ],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "expect": {
+    "world_after": {
+      "schemaVersion": 4,
+      "scenes": [],
+      "chapters": [],
+      "session_beats": [
+        { "ts": null, "text": "Kael arrived at the harbor at dusk.", "sceneId": null },
+        { "ts": null, "text": "A stranger offered Kael a sealed letter.", "sceneId": null }
+      ]
+    }
+  }
+}

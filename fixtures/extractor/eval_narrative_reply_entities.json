@@ -1,0 +1,26 @@
+{
+  "name": "eval_narrative_reply_entities",
+  "kind": "extraction-eval",
+  "notes": "D2 (v0.6.0): extractor input includes the accepted narrator reply. The NPC name and location appear ONLY in the narrative field — the player's words are deliberately vague. Asserts the extractor picks entities out of the narrator's text.",
+  "world_before": {
+    "schemaVersion": 3,
+    "character": { "name": "Kael", "class": "ranger" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "transcript": "I step inside and ask the person behind the counter about a room for the night.",
+  "narrative": "The common room of the Gilded Flagon is thick with pipe smoke. Behind the counter, a stout dwarven woman named Brunhild looks you over and slides a brass key across the wood. \"Two silver, ranger. Top of the stairs, second door.\"",
+  "expect": {
+    "assertions": [
+      { "path": "diff.npcs[name=Brunhild]", "present": true },
+      { "path": "diff.locations[0].name", "matches": "gilded flagon" }
+    ]
+  }
+}

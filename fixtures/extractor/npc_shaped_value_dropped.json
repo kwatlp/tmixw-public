@@ -1,0 +1,29 @@
+{
+  "name": "npc_shaped_value_dropped",
+  "kind": "diff-apply",
+  "notes": "Regression: an NPC-shaped object ({ name, status/notes }) inside player_character is dropped — never merged into the character card, never rerouted.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "diff": {
+    "player_character": {
+      "companion": { "name": "Mara", "status": "wounded" },
+      "class": "ranger"
+    }
+  },
+  "expect": {
+    "world_after": {
+      "character": { "name": "Kael", "class": "ranger" },
+      "npcs": []
+    },
+    "absent": ["character.companion"]
+  }
+}

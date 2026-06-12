@@ -1,0 +1,20 @@
+{
+  "name": "legacy_character_updates_alias",
+  "kind": "diff-apply",
+  "notes": "Pre-v2 diffs (old pending queue entries, user-customized extractor prompts) use character_updates; it must keep applying.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "diff": { "character_updates": { "hp": "12" } },
+  "expect": {
+    "world_after": { "character": { "name": "Kael", "hp": "12" } }
+  }
+}

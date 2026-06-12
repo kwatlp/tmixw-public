@@ -1,0 +1,84 @@
+@import url("https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  /* ── Fonts ─────────────────────────────────────────── */
+  --serif: "Crimson Pro", "Iowan Old Style", Georgia, serif;
+  --sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono:  ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* ── Background / field ────────────────────────────── */
+  --field:        #0f0c14;
+  --field-2:      #16121b;
+
+  /* ── Panels ────────────────────────────────────────── */
+  --panel:        rgba(25, 25, 30, 0.85);
+  --panel-solid:  #19191e;
+  --panel-recess: rgba(0, 0, 0, 0.28);
+
+  /* ── Text ──────────────────────────────────────────── */
+  --bone:     #e0d7c6;
+  --bone-dim: #b9b0a0;
+  --muted:    #8c8273;
+
+  /* ── Accent: gold ──────────────────────────────────── */
+  --gold:       #d4af37;
+  --gold-soft:  rgba(212, 175, 55, 0.18);
+  --gold-ghost: rgba(212, 175, 55, 0.08);
+
+  /* ── Accent: red / oxblood ─────────────────────────── */
+  --oxblood:      #a63d40;
+  --oxblood-soft: rgba(166, 61, 64, 0.14);
+
+  /* ── UI states ─────────────────────────────────────── */
+  --rec-red: #c84040;
+  --focus:   rgba(212, 175, 55, 0.40);
+
+  /* ── Borders ───────────────────────────────────────── */
+  --hair:        rgba(255, 255, 255, 0.08);
+  --hair-strong: rgba(255, 255, 255, 0.14);
+
+  /* ── Gradients ─────────────────────────────────────── */
+  --gradient-primary:  linear-gradient(135deg, rgba(212,175,55,0.95), rgba(166,61,64,0.85));
+  --gradient-progress: linear-gradient(90deg,  rgba(212,175,55,0.90), rgba(166,61,64,0.85));
+  --gradient-ambient:  radial-gradient(circle at 20% 0%, rgba(212,175,55,0.10), transparent 50%);
+
+  /* ── Legacy aliases (keep until JSX inline styles are migrated) ── */
+  --font-narrative:       var(--serif);
+  --font-ui:              var(--sans);
+  --color-bg-panel:       var(--panel);
+  --color-text-main:      var(--bone);
+  --color-accent-gold:    var(--gold);
+  --color-accent-red:     var(--oxblood);
+  --color-text-muted:     var(--muted);
+  --color-panel-border:   var(--hair);
+  --color-recording-active: var(--rec-red);
+  --color-thinking:       var(--focus);
+}
+
+/* ── Utility classes ──────────────────────────────────── */
+
+/* Reading-experience polish (v0.7.0 M5): book-like measure and rhythm.
+   line-height 1.7 + slight letter spacing reads calmer at 1.05rem serif;
+   max-width caps the measure around 70ch so long sessions don't fatigue. */
+.narrative-text {
+  font-family: var(--serif);
+  color: var(--bone);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  max-width: 70ch;
+  text-rendering: optimizeLegibility;
+}
+
+/* Paragraph rhythm inside a streamed/pre-wrapped narrator block: blank
+   lines inside the text provide the breaks; give wrapped blocks breathing
+   room against the turn that follows. */
+p.narrative-text {
+  margin-bottom: 0.35rem;
+}
+
+.ui-label {
+  font-family: var(--sans);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

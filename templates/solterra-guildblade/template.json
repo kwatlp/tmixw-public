@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "solterra-guildblade",
+  "name": "Solterra: Guildblade",
+  "tagline": "A solo combat-RPG engine — climb the Adventurers' Charter, one quest at a time.",
+  "author": "Solterra / Guildblade (player-supplied)",
+  "genre": "Heroic fantasy · guild dungeon-crawl RPG",
+  "version": "1.0.0",
+  "createdAt": "2026-06-12",
+  "summary": "Take guild quests, battle through monsters, climb the ranks Tin→Star-forged, and watch a Unique Power evolve into legend. Action-first, gambit-driven combat run by a single GM voice (Skyra). Play opens at the Adventurers' Charter chapterhouse in the port city of Kalthas.",
+
+  "narrator": {
+    "systemPromptFile": "system_prompt.md",
+    "promptMode": "override",
+    "config": {
+      "lengthPreset": "brief",
+      "temperature": 0.8,
+      "rep_pen": 1.08
+    }
+  },
+
+  "gm": {
+    "bestiaryFile": "bestiary.gm.json",
+    "notes": "GM-ONLY. Full monster stat blocks + scaling/variant tables. The loader should make this available to the NARRATOR as reference context (retrieval or pinned), but it must NEVER be written into player-facing world_state or shown in the UI. The player's own discovered-creature notes are a separate, initially-empty section: seed.bestiary below. See templates/README.md → 'The bestiary gap'."
+  },
+
+  "characterSchema": {
+    "_doc": "Reference shape only — NOT seeded. The §2 Character Forge fills these at session start (seed.character stays {}). Listed so the future loader and CharacterTab know the keys this template's narrator will produce.",
+    "expectedKeys": {
+      "name": "string",
+      "pronouns": "string",
+      "race": "string",
+      "origin": "string",
+      "rank": "E (Tin) at start",
+      "xp": "0/100 at start",
+      "stats": { "STR": "int", "AGI": "int", "CON": "int", "INT": "int", "CHA": "int", "WIL": "int" },
+      "vitality": "50 + 5×CON",
+      "stamina": "40 + 4×CON",
+      "aether": "30 + 3×(INT + WIL)",
+      "guard": "10 + floor(AGI/2) + armor (armor caps at +3)",
+      "skills": "3 skills at Rank E",
+      "unique_power": { "name": "string", "reliable": "string", "stretch": "string", "cost": "STA or AET per use" },
+      "coin": "GC / SS / CB from Origin",
+      "inventory": "equipped + carried from Origin kit"
+    }
+  },
+
+  "seed": {
+    "_doc": "Each key maps to a world_state.json section that fills a UI tab. The loader should merge these into a fresh world_state (see templates/README.md → 'Seed → world_state mapping'). 'bestiary' is a NEW section that does not yet exist in the schema.",
+
+    "current_location": "Kalthas — Charter Chapterhouse",
+
+    "character": {},
+
+    "npcs": [
+      {
+        "name": "Skyra",
+        "status": "the system's voice",
+        "notes": "The quiet ledger-keeper and rank-announcer — Solterra's interface made diegetic. Speaks rarely (rank-ups, Awakenings, the Thread, the welcome): two lines at most. Grants the once-per-rank mercy when the player falls (Skyra's Thread)."
+      },
+      {
+        "name": "The Charter Clerk",
+        "status": "chapterhouse staff",
+        "notes": "Pays out quest rewards, stocks rank-appropriate gear and consumables, and keeps the board chalked. The face of the Adventurers' Charter in Kalthas."
+      }
+    ],
+
+    "quests": [],
+
+    "locations": [
+      {
+        "name": "Kalthas",
+        "description": "A vast sunlit port where all three worlds share the docks — Coalition, Deep Wood Folk, and the Sundered Flag. The starting city; the Charter's chapterhouse here never closes."
+      },
+      {
+        "name": "Charter Chapterhouse",
+        "description": "The Adventurers' Charter's house in Kalthas. Holds the quest board (3 postings at a time), a clerk who pays out, a notice wall of free rumor-hooks, and beds for plated members."
+      }
+    ],
+
+    "lorebook": [
+      {
+        "title": "Solterra — The World in Brief",
+        "content": "Solterra, the Age of Legends. The Coalition holds the cities and roads; the Deep Wood Folk keep the wilds and old ways; the Sundered Flag sails free and answers to no one. Between pockets of civilization, aether-storms breed monsters in the wild places — and culling them is the trade of the Adventurers' Charter. Factions are texture, not bookkeeping: no reputation scores, just people who remember how you treated them.",
+        "keywords": ["solterra", "coalition", "deep wood folk", "sundered flag", "aether-storm", "age of legends"]
+      },
+      {
+        "title": "The Adventurers' Charter",
+        "content": "The guild whose plate the player carries. Ranks by plate: Tin E · Copper D · Silver C · Gold B · Mithril A · Star-forged S. The chapterhouse offers the board (exactly 3 quests per visit), a clerk who pays out, a notice wall of rumors (free hooks), and beds for plated members. A member may take quests up to their rank +1; punching up pays +50% quest XP. Quest types: CULL · HUNT · DELVE · ESCORT · RECOVER · STRANGE.",
+        "keywords": ["charter", "guild", "plate", "rank", "tin", "copper", "silver", "gold", "mithril", "star-forged", "quest board", "chapterhouse"]
+      },
+      {
+        "title": "Currency of Solterra",
+        "content": "1 Gold Crown (GC) = 20 Silver Sails (SS) = 200 Copper Bits (CB). Quest pay and gear prices are quoted in these.",
+        "keywords": ["currency", "coin", "gold crown", "silver sail", "copper bit", "gc", "ss", "cb"]
+      },
+      {
+        "title": "Kalthas — The Port City",
+        "content": "Where play opens: a vast sunlit port where Coalition, Deep Wood Folk, and Sundered Flag all share the docks. The Charter's chapterhouse here never closes. The hub the player returns to between quests for rest, pay, and the next board.",
+        "keywords": ["kalthas", "port", "docks", "city", "chapterhouse"]
+      },
+      {
+        "title": "Skyra — The System's Voice",
+        "content": "The quiet voice of the system: ledger-keeper, rank-announcer, keeper of the once-per-rank mercy. She is seasoning, not narration — two lines at most, and rarely. She speaks at rank-ups, Awakenings, the welcome, and when she pulls the Thread (the once-per-rank-tier save from death).",
+        "keywords": ["skyra", "system voice", "thread", "rank-up", "awakening"]
+      },
+      {
+        "title": "The Gambit Rule — Heart of Combat",
+        "content": "When the player uses a skill, item, power, or the arena's Canvas in a way that is creative, fictionally plausible, and specific, the GM grants one of: Advantage, +1d6 effect, ignore Guard, or a rider (trip, blind, burn, disarm). An exceptional gambit may simply succeed. Every honored gambit: +5 XP. The attempt is never punished — if implausible, the GM says in one line what would make it work. Monsters carry Traits that invite counters; bosses carry a hidden Flaw that rewards observation.",
+        "keywords": ["gambit", "canvas", "trait", "flaw", "advantage", "combat", "cleverness"]
+      },
+      {
+        "title": "The Unique Power & Awakening",
+        "content": "Each character has one Unique Power, graded to Rank E at creation: a name, a reliable application, a stretch application, and a STA/AET cost. It out-scales everything they own. At each rank-up the power Awakens — 2–3 named evolution paths shaped by how the player actually used it. At C it takes a Second Form (renamed, transformed); at A, its Apex.",
+        "keywords": ["unique power", "awakening", "second form", "apex", "evolution"]
+      }
+    ],
+
+    "session_beats": [
+      "Session start: the player comes to the Adventurers' Charter chapterhouse in the port city of Kalthas to take up a tin plate. Character creation (the Forge) runs first; then the tin plate is pressed into their palm and the board is chalked with three quests."
+    ],
+
+    "bestiary": []
+  },
+
+  "onboarding": {
+    "runAtStart": "character-forge",
+    "firstMessageHint": "Follow system_prompt.md §12 · Session Start: Skyra's two-line welcome, then the full Character Forge (§2) in ONE message. On the player's answers, confirm the sheet, render STATUS, and open at the Kalthas chapterhouse with the tin plate and a board of 3 quests — same message.",
+    "boardSize": 3,
+    "startingRank": "E"
+  }
+}

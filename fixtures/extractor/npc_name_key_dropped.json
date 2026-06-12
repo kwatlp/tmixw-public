@@ -1,0 +1,24 @@
+{
+  "name": "npc_name_key_dropped",
+  "kind": "diff-apply",
+  "notes": "Regression: small models route NPC facts into the player character as { 'Mara': 'wounded' }. Keys matching an existing NPC name are dropped, not merged.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael" },
+    "npcs": [{ "name": "Mara", "status": "alive", "notes": "" }],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "diff": { "player_character": { "Mara": "wounded", "hp": "12" } },
+  "expect": {
+    "world_after": {
+      "character": { "name": "Kael", "hp": "12" },
+      "npcs": [{ "name": "Mara", "status": "alive", "notes": "" }]
+    },
+    "absent": ["character.Mara"]
+  }
+}

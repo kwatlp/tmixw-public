@@ -1,0 +1,25 @@
+{
+  "name": "eval_lorebook_capture",
+  "kind": "extraction-eval",
+  "notes": "Lorebook drop detection (known failure mode): durable world lore stated in play should surface as a lorebook entry, not vanish.",
+  "world_before": {
+    "schemaVersion": 3,
+    "character": { "name": "Kael", "class": "ranger" },
+    "npcs": [{ "name": "Old Senna", "status": "alive", "notes": "harbor storyteller" }],
+    "quests": [],
+    "locations": [{ "name": "The Sunken Vault", "description": "a drowned ruin beyond the breakwater" }],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "transcript": "Old Senna leans in and tells me the Sunken Vault only opens at the lowest tide of the month, and that iron rusts instantly inside it.",
+  "expect": {
+    "assertions": [
+      { "path": "diff.lorebook", "present": true },
+      { "path": "diff.lorebook[0].content", "matches": "tide|iron|rust" }
+    ]
+  }
+}

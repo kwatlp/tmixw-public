@@ -1,0 +1,124 @@
+{
+  "wizardComplete": true,
+
+  "debug": false,
+
+  "stdinPtt": true,
+
+  "ui": {
+    "backgroundImage": "art/backgroundimage.jpg",
+    "borderMode": "svg",
+    "borderImage": null,
+    "locationBackgrounds": {}
+  },
+
+  "inference": {
+    "backend": "koboldcpp",
+    "url": "",
+    "model": "",
+    "custom": {
+      "url": "",
+      "headers": {},
+      "bodyTemplate": "",
+      "responsePath": ""
+    }
+  },
+
+  "koboldGenerateUrl": "http://127.0.0.1:5001/api/v1/generate",
+  "whisperBin": "C:\\\\path\\\\to\\\\whisper-cli.exe",
+  "whisperModel": "C:\\\\path\\\\to\\\\ggml-medium.bin",
+  "ffmpegBin": "ffmpeg",
+  "ffmpegDshowAudioDevice": "Microphone Array (Realtek(R) Audio)",
+
+  "pushToTalk": {
+    "spaceReleaseMs": 750,
+    "restartDebounceMs": 400,
+    "minRecordMs": 350,
+    "key": "Backquote",
+    "electronAccelerator": "`",
+    "autoSend": false
+  },
+
+  "narrative": {
+    "max_length": 220,
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "top_k": 0,
+    "rep_pen": 1.08,
+    "stop_sequence": ["\nUser:", "\nAssistant:"],
+    "lengthPreset": "standard",
+    "acceptGraceMs": 8000,
+    "stream": true,
+    "template": "auto",
+    "style": {
+      "tone": "neutral",
+      "pov": "second",
+      "tense": "present",
+      "rating": "standard",
+      "notes": ""
+    }
+  },
+
+  "extractor": {
+    "max_length": 512,
+    "temperature": 0.2,
+    "top_p": 0.9,
+    "top_k": 0,
+    "rep_pen": 1.05,
+    "stop_sequence": ["\nUser:", "\nAssistant:"],
+    "includeNarrative": true
+  },
+
+  "summarizer": {
+    "max_length": 200,
+    "temperature": 0.3,
+    "top_p": 0.9,
+    "top_k": 0,
+    "rep_pen": 1.05,
+    "stop_sequence": ["\nUser:", "\nAssistant:"]
+  },
+
+  "memory": {
+    "sceneBeatThreshold": 12,
+    "autoSceneOnLocationChange": true,
+    "autoSummarize": true
+  },
+
+  "context": {
+    "memoryMaxChars": 6000,
+    "retrievalMaxEntries": 6,
+    "retrievalSimilarityThreshold": 0.35
+  },
+
+  "imagegen": {
+    "endpoint": "",
+    "steps": 28,
+    "width": 1280,
+    "height": 720
+  },
+
+  "agent": {
+    "enabled": false,
+    "backend": "none",
+    "endpoint": "",
+    "bin": "",
+    "args": ""
+  },
+
+  "lorebook": {
+    "maxEntries": 5,
+    "maxInjectChars": 3500,
+    "maxMatchMessages": null,
+    "vectorSimilarityThreshold": 0.35,
+    "vectorEnabled": true
+  },
+
+  "characterOnboard": {
+    "max_length": 600,
+    "temperature": 0.25,
+    "top_p": 0.9,
+    "top_k": 0,
+    "rep_pen": 1.05,
+    "stop_sequence": ["\nUser:", "\nAssistant:"]
+  }
+}

@@ -1,0 +1,15 @@
+I read both files. These are blind A/B results comparing the old vs new `narrative_system.txt` prompt on Mistral-7B, 3 samples per scenario. I judged before checking the answer key; here's the verdict.
+
+**exploration_atmosphere** (A = OLD, B = NEW)
+
+NEW wins 2 of 3. Sample 1: NEW gives concrete spatial layout and plants a discoverable object (the leather book) — better discovery pacing — but truncates mid-word ("It'"). Sample 2: OLD acts for the player ("As you take hold of it, it shifts beneath your feet"), a clear violation; NEW stays descriptive and lays out the space without seizing control. Sample 3: OLD edges it — NEW has a logic break ("a peal of bells echoes through the water, growing fainter as they submerge" makes no physical sense). Net: NEW is better at concrete, navigable scenes; OLD tends toward vaguer mood plus occasional player-puppeteering.
+
+**quiet_moment** (A = NEW, B = OLD)
+
+Mixed. Sample 1: OLD hallucinates a character name ("Kael's blade") that's nowhere in context — disqualifying; NEW is restrained if slightly incoherent (boots crunch while sitting). Sample 2: NEW wins cleanly — matches the player's reflective beat and stays low-stakes. Sample 3: NEW fails the scenario's core test — wolf howl, "a path to fortune, or a graveyard for the foolish?" is exactly the manufactured drama this scenario screens for, and it relocates the player from the North Road to "the road west." OLD's sample 3 is garbled ("a rustling branch rusts higher still") and invents inventory backstory, so neither is good.
+
+**Cross-cutting issues**
+
+Four of six exploration responses and one quiet_moment response truncate mid-sentence — either raise max tokens or have the prompt push for shorter, complete beats; the latter fits the genre better. Both prompts inherit 7B-Q4 artifacts (hallucinated names, garbled phrases), and with n=3 per scenario one bad sample swings the read — variance is high enough that I'd treat this as directional, not conclusive.
+
+**Bottom line:** NEW is a modest improvement — more concrete scene-building, better discovery hooks, less acting-for-the-player — but it hasn't fixed the restraint failure mode in low-stakes scenes (quiet_moment sample 3). If you iterate again, I'd target two things: an explicit "end on a complete sentence/beat" instruction, and a stronger guard against escalating stakes when the player is just resting.

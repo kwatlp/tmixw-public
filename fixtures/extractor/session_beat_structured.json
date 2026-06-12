@@ -1,0 +1,31 @@
+{
+  "name": "session_beat_structured",
+  "kind": "diff-apply",
+  "notes": "schema v3: an extractor session_beat lands as a structured beat ({ text, sceneId: null }; id/ts are generated and not asserted) appended after existing beats.",
+  "world_before": {
+    "schemaVersion": 3,
+    "character": {},
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [
+      { "id": "beat_0", "ts": null, "text": "An earlier beat.", "sceneId": "scene_0" }
+    ],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "diff": {
+    "session_beat": "  Kael read the sealed letter by candlelight.  "
+  },
+  "expect": {
+    "world_after": {
+      "session_beats": [
+        { "id": "beat_0", "text": "An earlier beat.", "sceneId": "scene_0" },
+        { "text": "Kael read the sealed letter by candlelight.", "sceneId": null }
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "eval_quest_completion",
+  "kind": "extraction-eval",
+  "notes": "Quest completion detection (known failure mode, roadmap v4 v0.5.0 item 4). Status wording varies across small models — assert a regex, not equality. Flakes ~50% on a byte-identical prompt (pre-existing sampling variance, v0.6.0 carry-forward) — majority-of-3 sampling decides.",
+  "samples": 3,
+  "world_before": {
+    "schemaVersion": 3,
+    "character": { "name": "Kael", "class": "ranger" },
+    "npcs": [{ "name": "Elder Miro", "status": "alive", "notes": "asked Kael for a heron feather" }],
+    "quests": [{ "title": "Find the heron feather", "status": "active" }],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "transcript": "I hand the heron feather to Elder Miro. That finishes what he asked of me.",
+  "expect": {
+    "assertions": [
+      { "path": "diff.quests[title=Find the heron feather]", "present": true },
+      { "path": "diff.quests[title=Find the heron feather].status", "matches": "complet|done|finish" }
+    ]
+  }
+}

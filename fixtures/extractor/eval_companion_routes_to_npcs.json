@@ -1,0 +1,23 @@
+{
+  "name": "eval_companion_routes_to_npcs",
+  "kind": "extraction-eval",
+  "notes": "Data-only fixture for the v0.5.0 eval harness (live model in the loop). The fixtures runner skips extraction-eval entries.",
+  "world_before": {
+    "schemaVersion": 2,
+    "character": { "name": "Kael", "class": "ranger" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [],
+    "correction_history": []
+  },
+  "transcript": "I introduce myself to the blacksmith, Mara. She looks wounded.",
+  "expect": {
+    "assertions": [
+      { "path": "diff.player_character.Mara", "absent": true },
+      { "path": "diff.npcs[name=Mara]", "present": true }
+    ]
+  }
+}

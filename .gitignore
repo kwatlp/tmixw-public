@@ -1,0 +1,43 @@
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+
+# Local runtime artifacts (repo root = this project; see README if your git root is the parent folder)
+core/session.json
+core/recordings/
+core/config.json
+/core/world_state.json
+/core/world_state.backup-*.json
+/core/events.jsonl
+
+# UI smoke harness screenshots (regenerable; see scripts/ui_smoke*.mjs)
+scripts/.shots/
+
+# Electron / Vite build outputs
+release/
+# Vite `root: renderer` → build lands in `renderer/dist/` (must not be tracked)
+renderer/dist/
+dist/
+
+# All binaries/models in resources/bin/ — only README.md is tracked
+resources/bin/*
+!resources/bin/README.md
+
+# Bundled MiniLM embeddings model (resources/models/): small JSONs are
+# tracked, the 22MB onnx weights are not (see resources/models/README.md)
+resources/models/**/*.onnx
+
+tmixw-run.log
+build.log
+docs/tmixw-0.1.0-win.zip
+
+# Local GGUF / whisper weights at repo root
+/models/
+/core/memory_vectors.json
+
+# Personal editor/agent tooling + machine-local starter config
+.cursor/
+.claude/
+core/config.packaged.starter.json

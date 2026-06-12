@@ -1,0 +1,96 @@
+{
+  "comment": "Fixed scenario set for scripts/narrative_ab.js (v0.6.0 M4, plan D6). Each scenario exercises one craft dimension the prompt overhaul targets. Keep this set stable across prompt iterations so comparisons stay apples-to-apples.",
+  "scenarios": [
+    {
+      "name": "tavern_social",
+      "tests": "NPC voice + dialogue; not echoing the player",
+      "world": {
+        "character": { "name": "Kael", "class": "ranger" },
+        "npcs": [{ "name": "Brunhild", "status": "alive", "notes": "dwarven innkeeper of the Gilded Flagon, gruff but fair" }],
+        "quests": [],
+        "locations": [{ "name": "Gilded Flagon" }]
+      },
+      "history": [
+        { "role": "user", "content": "I step into the Gilded Flagon and shake the rain off my cloak." },
+        { "role": "assistant", "content": "Warmth and pipe smoke wrap around you. Behind the counter, Brunhild glances up from a tally book, one brow rising at the puddle forming under your boots." }
+      ],
+      "transcript": "I ask Brunhild if anyone strange has passed through this week, and slide a silver across the counter."
+    },
+    {
+      "name": "combat_tension",
+      "tests": "pacing under action; concrete, quick beats; yields the turn",
+      "world": {
+        "character": { "name": "Kael", "class": "ranger", "hp": "wounded" },
+        "npcs": [{ "name": "marsh wolf", "status": "hostile" }],
+        "quests": [],
+        "locations": [{ "name": "Blackreed Marsh" }]
+      },
+      "history": [
+        { "role": "user", "content": "I back toward the dead tree, arrow nocked." },
+        { "role": "assistant", "content": "Mud sucks at your heels. The marsh wolf circles left, hackles up, keeping low to the reeds — it has done this before." }
+      ],
+      "transcript": "I loose the arrow at its shoulder and draw my knife in the same motion."
+    },
+    {
+      "name": "exploration_atmosphere",
+      "tests": "sensory scene craft; discovery pacing; ends on a hook",
+      "world": {
+        "character": { "name": "Kael", "class": "ranger" },
+        "npcs": [],
+        "quests": [{ "title": "Find the source of the bells", "status": "active" }],
+        "locations": [{ "name": "Sunken Chapel" }]
+      },
+      "history": [
+        { "role": "user", "content": "I wade down the flooded stair into the chapel." }
+      ],
+      "transcript": "I raise my torch and look around the nave."
+    },
+    {
+      "name": "consequence_recall",
+      "tests": "world-fact safety: never contradict the snapshot or story so far",
+      "world": {
+        "character": { "name": "Kael", "class": "ranger" },
+        "npcs": [
+          { "name": "Elder Miro", "status": "alive", "notes": "village elder; Kael returned the heron feather to him" },
+          { "name": "Sera", "status": "dead", "notes": "Miro's apprentice, killed by marsh wolves" }
+        ],
+        "quests": [{ "title": "Find the heron feather", "status": "completed" }],
+        "locations": [{ "name": "Harborton" }]
+      },
+      "chapterSummary": "Kael recovered the heron feather from Blackreed Marsh at great cost: Miro's apprentice Sera was killed by wolves on the journey. Miro received the feather with grief as much as gratitude.",
+      "history": [
+        { "role": "user", "content": "I knock on Elder Miro's door at dusk." }
+      ],
+      "transcript": "I ask Miro how he has been holding up since everything that happened."
+    },
+    {
+      "name": "quiet_moment",
+      "tests": "low-stakes pacing; restraint; no manufactured drama",
+      "world": {
+        "character": { "name": "Kael", "class": "ranger" },
+        "npcs": [],
+        "quests": [],
+        "locations": [{ "name": "North Road" }]
+      },
+      "history": [
+        { "role": "user", "content": "I make camp off the North Road as the light goes." },
+        { "role": "assistant", "content": "The fire takes on the third strike. Sparks drift up through the pines, and somewhere far off a night bird calls once, then thinks better of it." }
+      ],
+      "transcript": "I sit by the fire and clean my gear, taking stock of where I'm headed and why."
+    },
+    {
+      "name": "player_overreach",
+      "tests": "narrator agency: big outcomes need setup; complication without blocking",
+      "world": {
+        "character": { "name": "Kael", "class": "ranger" },
+        "npcs": [{ "name": "Captain Vesk", "status": "alive", "notes": "garrison captain, armed, flanked by two guards" }],
+        "quests": [{ "title": "Expose the smuggling ring", "status": "active" }],
+        "locations": [{ "name": "Harborton garrison" }]
+      },
+      "history": [
+        { "role": "user", "content": "I walk into the garrison hall where Captain Vesk is holding court." }
+      ],
+      "transcript": "I grab Vesk by the collar, tell everyone he runs the smuggling ring, and make him confess on the spot."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "migration_v3_to_v4",
+  "kind": "migrate",
+  "notes": "v4 (codex, v0.8.4) drains pending_extractions in extractedAt order (the later diff wins the lorebook upsert), deletes the queue keys, stamps entry ids, and adds the codex block. Ids are generated so expectations assert only stable fields. Runner also asserts idempotency.",
+  "world_before": {
+    "schemaVersion": 3,
+    "character": { "name": "Kael" },
+    "npcs": [{ "name": "Mira", "status": "alive", "notes": "" }],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [
+      { "title": "Old Lore", "content": "Stands.", "keywords": ["old"] }
+    ],
+    "pending_extractions": [
+      {
+        "id": "ext_b",
+        "diff": { "lorebook": [{ "title": "The Gate", "content": "B", "keywords": ["gate"] }] },
+        "extractedAt": "2026-01-02T00:00:00.000Z"
+      },
+      {
+        "id": "ext_a",
+        "diff": { "lorebook": [{ "title": "The Gate", "content": "A", "keywords": ["gate"] }] },
+        "extractedAt": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "correction_history": [],
+    "lore_review_log": [{ "ts": "2026-01-01T00:00:00.000Z", "action": "auto-accept", "title": "Old Lore" }]
+  },
+  "expect": {
+    "world_after": {
+      "schemaVersion": 4,
+      "npcs": [{ "name": "Mira", "status": "alive" }],
+      "lorebook": [
+        { "title": "Old Lore", "content": "Stands." },
+        { "title": "The Gate", "content": "B" }
+      ],
+      "codex": {
+        "groups": [],
+        "membership": {},
+        "isNew": {}
+      }
+    },
+    "absent": ["pending_extractions", "lore_review_log"]
+  }
+}

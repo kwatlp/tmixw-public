@@ -1,0 +1,758 @@
+/* Codex panel (v0.8.4 redesign) — record cards, groups, tabs.
+   Pixel values follow docs/UIUX Wireframe/README.md §2. */
+
+.codex-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* --- Tab row -------------------------------------------------------------- */
+
+.codex-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 12px 10px;
+}
+
+.codex-tab {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 13px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.codex-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.codex-tab.active {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.codex-icon-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.codex-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--bone);
+}
+.codex-icon-btn.gear {
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+}
+
+/* --- Search --------------------------------------------------------------- */
+
+.codex-search-wrap {
+  padding: 0 12px 10px;
+}
+.codex-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--bone);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.codex-search::placeholder {
+  color: var(--muted);
+}
+.codex-search:focus {
+  border-color: var(--focus);
+  outline: none;
+}
+
+/* --- Group list ----------------------------------------------------------- */
+
+.codex-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cdx-group-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.cdx-group-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.cdx-group-arrow {
+  color: var(--muted);
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+.cdx-group-name {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cdx-group-count {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.cdx-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* --- Custom groups & drag-and-drop ----------------------------------------- */
+
+.cdx-group-affordance {
+  background: transparent;
+  border: none;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.cdx-group-affordance:hover {
+  color: var(--gold);
+}
+
+.cdx-group-rename {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bone);
+  outline: none;
+}
+.cdx-group-rename:focus {
+  border-color: var(--focus);
+  outline: none;
+}
+
+.cdx-group-header.drop-hover {
+  background: var(--gold-ghost);
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.35);
+}
+
+.cdx-card-header[draggable="true"] {
+  cursor: grab;
+}
+.cdx-card-header[draggable="true"]:active {
+  cursor: grabbing;
+}
+.cdx-card.dragging {
+  opacity: 0.45;
+}
+
+.cdx-insert-line {
+  height: 2px;
+  background: var(--gold);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.cdx-group-empty {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--muted);
+  opacity: 0.7;
+  padding: 6px 2px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.cdx-new-group.drop-hover {
+  background: var(--gold-ghost);
+  color: var(--gold);
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+/* --- Record card ---------------------------------------------------------- */
+
+.cdx-card {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+}
+.cdx-card.is-new {
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+.cdx-card-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.cdx-card-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.cdx-card-arrow {
+  color: var(--muted);
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+.cdx-card-name {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--bone);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cdx-spacer {
+  flex: 1;
+}
+.cdx-new-marker {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.cdx-pill {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cdx-pill.gold {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.cdx-pill.red {
+  background: rgba(166, 61, 64, 0.18);
+  color: #d99a9c;
+}
+.cdx-pill.green {
+  background: rgba(140, 220, 160, 0.12);
+  color: rgba(140, 220, 160, 0.95);
+}
+.cdx-pill.plain {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+}
+
+/* --- Field rows ----------------------------------------------------------- */
+
+.cdx-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--hair);
+}
+.cdx-field-label {
+  width: 76px;
+  flex-shrink: 0;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cdx-field-label.bullet {
+  width: 12px;
+}
+.cdx-field-value {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--bone);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: pre-wrap;
+  word-break: break-word;
+  transition: background 0.15s ease;
+}
+.cdx-field-value:hover {
+  background: var(--gold-ghost);
+}
+.cdx-prov {
+  font-size: 0.72rem;
+  margin-left: 4px;
+}
+.cdx-prov.ai {
+  color: var(--gold);
+}
+.cdx-prov.you {
+  color: var(--muted);
+}
+
+.cdx-field-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--bone);
+  outline: none;
+  resize: vertical;
+}
+.cdx-field-input:focus {
+  border-color: var(--focus);
+  outline: none;
+}
+
+/* Pills inside a pills-kind field */
+.cdx-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.cdx-pills:hover {
+  background: var(--gold-ghost);
+}
+.cdx-tag {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--bone);
+  border: 1px solid var(--hair-strong);
+  border-radius: 999px;
+  padding: 1px 10px;
+  white-space: nowrap;
+}
+
+/* --- Card footers --------------------------------------------------------- */
+
+.cdx-add-field {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px 6px 28px;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--hair);
+  border-radius: 0 0 6px 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cdx-add-field:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--bone);
+}
+
+.cdx-draft-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--hair);
+}
+.cdx-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--hair-strong);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 3px 12px;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.cdx-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.cdx-btn-gold {
+  background: var(--gold-soft);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: var(--gold);
+  border-radius: 6px;
+  padding: 3px 12px;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* --- Chronicle (STORY) ------------------------------------------------------ */
+
+.cdx-chron-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--hair);
+}
+.cdx-mini {
+  background: transparent;
+  border: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cdx-mini:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--bone);
+}
+.cdx-mini.pinned {
+  color: var(--gold);
+}
+.cdx-mini.danger {
+  color: #d99a9c;
+  background: rgba(166, 61, 64, 0.18);
+}
+.cdx-mini.static {
+  cursor: default;
+}
+.cdx-mini.static:hover {
+  background: transparent;
+  color: var(--muted);
+}
+.cdx-mini:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Beat hover controls — hidden until the row is hovered; a pinned beat keeps
+   its pin visible. */
+.cdx-beat-controls {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.cdx-field:hover .cdx-beat-controls,
+.cdx-beat-controls:has(.pinned) {
+  opacity: 1;
+}
+
+.cdx-now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 0;
+}
+.cdx-now-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
+  flex-shrink: 0;
+}
+.cdx-now-label {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+
+.cdx-story-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 0;
+}
+
+/* --- + New group ---------------------------------------------------------- */
+
+.cdx-new-group {
+  margin: 0 12px 12px;
+  padding: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cdx-new-group:hover {
+  background: var(--gold-ghost);
+  color: var(--gold);
+}
+
+/* --- Search ----------------------------------------------------------------- */
+
+.cdx-hit {
+  background: var(--gold-soft);
+  border-radius: 2px;
+}
+
+/* --- Narrative codex marker chip -------------------------------------------- */
+
+.narrative-marker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 8px 2px 0;
+  padding: 2px 12px;
+  background: var(--gold-ghost);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--gold);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.narrative-marker-chip:hover {
+  background: var(--gold-soft);
+}
+
+/* --- Voice HUD --------------------------------------------------------------- */
+
+.voice-hud {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voice-hud-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.voice-hud-kicker {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.voice-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.voice-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.voice-bar.lit {
+  background: var(--muted);
+}
+.voice-bar.live {
+  background: var(--rec-red);
+}
+.voice-recording {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rec-red);
+}
+.voice-hud-hide {
+  background: transparent;
+  border: none;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: lowercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.voice-hud-hide:hover {
+  color: var(--bone);
+}
+
+.voice-hud-controls {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.voice-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.voice-control-label {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.voice-help {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.voice-keycap {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--gold);
+  background: var(--gold-ghost);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.voice-keycap:hover {
+  background: var(--gold-soft);
+}
+.voice-keycap.listening {
+  color: var(--bone);
+  border-color: var(--focus);
+}
+
+.voice-device {
+  max-width: 200px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--bone);
+  outline: none;
+}
+
+.voice-toggle {
+  width: 34px;
+  height: 18px;
+  flex-shrink: 0;
+  position: relative;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: background 0.2s ease-in-out;
+  padding: 0;
+}
+.voice-toggle.on {
+  background: var(--gold-soft);
+}
+.voice-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: left 0.2s ease-in-out, background 0.2s ease-in-out;
+}
+.voice-toggle.on .voice-toggle-knob {
+  left: 18px;
+  background: var(--gold);
+}
+
+.voice-hearing {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-top: 1px solid var(--hair);
+  padding-top: 8px;
+}
+.voice-hearing-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--bone);
+}
+
+/* --- Collapsed rail ------------------------------------------------------- */
+
+.codex-rail {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+.codex-rail-glyph {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.codex-rail-label {
+  writing-mode: vertical-rl;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}

@@ -1,0 +1,39 @@
+{
+  "name": "migration_v1_to_v2",
+  "kind": "migrate",
+  "notes": "v1 saves carry character_updates inside pending diffs; migration renames to player_character and adds correction_history. The v4 stage then drains the pending queue directly into world state (hp lands on the character) and retires the queue keys. Runner also asserts idempotency (second run is a no-op).",
+  "world_before": {
+    "schemaVersion": 1,
+    "character": { "name": "Kael" },
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "lorebook": [],
+    "pending_extractions": [
+      {
+        "id": "ext_1",
+        "diff": { "character_updates": { "hp": "5" }, "npcs": [] },
+        "extractedAt": "2026-01-01T00:00:00.000Z"
+      }
+    ]
+  },
+  "expect": {
+    "world_after": {
+      "schemaVersion": 4,
+      "character": { "name": "Kael", "hp": "5" },
+      "correction_history": [],
+      "scenes": [],
+      "chapters": [],
+      "codex": {
+        "groups": [],
+        "membership": {},
+        "groupOrder": {},
+        "prov": {},
+        "isNew": {},
+        "extraFields": {}
+      }
+    },
+    "absent": ["pending_extractions", "lore_review_log"]
+  }
+}

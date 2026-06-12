@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1622"></stop>
+      <stop offset="1" stop-color="#0f0c14"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" rx="123" fill="url(#bg)"></rect>
+  <g transform="scale(10.24)">
+  <g stroke="#d4af37" stroke-linecap="round" fill="none">
+    <path d="M50 16 L50 79" stroke-width="4"></path>
+    <path d="M26 50 L74 50" stroke-width="4"></path>
+    <g stroke-width="3.6">
+      <path d="M50 24 L45 27.5"></path><path d="M50 24 L55 27.5"></path>
+      <path d="M50 31 L42 35.5"></path><path d="M50 31 L58 35.5"></path>
+      <path d="M50 38 L38.5 43.5"></path><path d="M50 38 L61.5 43.5"></path>
+      <path d="M50 43.5 L35.5 49"></path><path d="M50 43.5 L64.5 49"></path>
+    </g>
+    <g stroke-width="3.4" opacity="0.62">
+      <path d="M50 72 L45.5 69"></path><path d="M50 72 L54.5 69"></path>
+      <path d="M50 65.5 L42.5 61.5"></path><path d="M50 65.5 L57.5 61.5"></path>
+      <path d="M50 58.5 L39.5 54.5"></path><path d="M50 58.5 L60.5 54.5"></path>
+    </g>
+  </g></g>
+</svg>

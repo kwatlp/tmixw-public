@@ -1,0 +1,77 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--sans);
+  color: var(--bone);
+  background-color: #0f0c14;
+}
+
+.app-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #0f0c14;
+}
+
+.bg-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ui-root {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  padding: 16px;
+  padding-bottom: 0;
+}
+
+.left-panel-wrap {
+  /* 340px (v0.8.4, widened from 260px) so record-card values don't wrap into soup. */
+  width: 340px;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.left-panel-wrap.collapsed {
+  width: 36px;
+}
+
+.narrative-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: 12px;
+}
+
+/* Location-bound background crossfade (v0.7.0): two stacked layers, the
+   active one fades in over the other when current_location changes. */
+.bg-layer img {
+  position: absolute;
+  inset: 0;
+  transition: opacity 1.6s ease;
+}
