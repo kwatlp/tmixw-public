@@ -36,9 +36,31 @@ jobs:
       - name: Build renderer
         run: npx vite build
 
-      - name: Package app (unpacked, current platform)
+      - name: Package app (unpacked smoke check, Windows/Linux)
         # --dir skips installers (no signing/notarization in CI); proves the
         # electron-builder config resolves and the app tree assembles.
+        if: runner.os != 'macOS'
         run: npx electron-builder --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Package macOS installers (dmg + zip, x64 + arm64)
+        # Full mac packaging — produces the downloadable installers. Unsigned
+        # (no Apple cert in CI), so the .app is ad-hoc signed; users open it via
+        # right-click → Open the first time. The whisper backend binaries are
+        # NOT bundled (installed via the in-app wizard), so this is the app
+        # shell only.
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload macOS installers
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmixw-macos-${{ github.sha }}
+          path: |
+            release/*.dmg
+            release/*.zip
+          if-no-files-found: error

@@ -4,7 +4,8 @@ import {
   ipcMain,
   globalShortcut,
   protocol,
-  dialog
+  dialog,
+  systemPreferences
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -2049,6 +2050,30 @@ async function main() {
 
   const windowResolved = { stdinPtt: false };
   createMainWindow(windowResolved, liveFileCfg);
+
+  // macOS: pre-prompt for microphone access (TCC) before the first capture, so
+  // the system dialog is attributed to tmíxʷ. Without this, ffmpeg's
+  // avfoundation child can "succeed" with empty audio when access is denied and
+  // never surface a prompt. No-op on win32/linux. Fire-and-forget; the 0.8.4
+  // blank-audio filter still guards a denied/empty capture.
+  if (process.platform === "darwin") {
+    try {
+      const micStatus = systemPreferences.getMediaAccessStatus("microphone");
+      console.log("[main] macOS microphone access status:", micStatus);
+      if (micStatus !== "granted") {
+        systemPreferences
+          .askForMediaAccess("microphone")
+          .then((granted) =>
+            console.log("[main] askForMediaAccess(microphone) ->", granted)
+          )
+          .catch((err) =>
+            console.warn("[main] askForMediaAccess(microphone) failed:", err)
+          );
+      }
+    } catch (err) {
+      console.warn("[main] microphone permission pre-prompt skipped:", err);
+    }
+  }
 
   /** @type {ReturnType<typeof setInterval> | null} */
   let pttKeyReleasePoll = null;

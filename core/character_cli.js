@@ -46,6 +46,8 @@ if (cmd === "open") {
   const abs = path.resolve(getWorldStatePath());
   if (process.platform === "win32") {
     spawn("cmd", ["/c", "start", "", abs], { detached: true, stdio: "ignore" });
+  } else if (process.platform === "darwin") {
+    spawn("open", [abs], { detached: true, stdio: "ignore" }).unref();
   } else {
     spawn("xdg-open", [abs], { detached: true, stdio: "ignore" }).unref();
   }

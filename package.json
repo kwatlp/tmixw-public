@@ -118,18 +118,24 @@
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.role-playing-games",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "tmíxʷ records your voice locally to transcribe spoken play into the narrative. Audio never leaves your machine.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "target": [
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
             "arm64"
           ]
         }
