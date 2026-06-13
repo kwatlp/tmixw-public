@@ -18,10 +18,12 @@ import {
 import { appendEvent } from "./events.js";
 import {
   getWritableCoreDir,
+  getActiveWorldDir,
   getSessionPath,
   getRecordingsDir,
   getMemoryVectorsPath
 } from "./app_paths.js";
+import { loadGmBestiary } from "./story_templates.js";
 import {
   resolveFfmpegBin,
   resolveWhisperBin,
@@ -145,6 +147,8 @@ export function resolvePipelineConfig(fileCfg, narrativeSystem, extractorSystem,
     narrativeSystem,
     extractorSystem,
     loreCorrectionSystem,
+    /** One-shot system directive for a world's very first narrator turn (story-template onboarding, v0.9.0 D5). Electron main resolves it from the active world's world.json. */
+    narrativeFirstTurnDirective: String(fileCfg.narrativeFirstTurnDirective ?? ""),
     koboldGenerateUrl:
       process.env.KOBOLD_GENERATE_URL ??
       fileCfg.koboldGenerateUrl ??
@@ -649,6 +653,12 @@ class LocalPipeline extends EventEmitter {
     this.lastStoppedAt = 0;
     this.wavPath = "";
     this.lastSpaceAt = 0;
+    /**
+     * Toggle-mode PTT latch (v0.9.0 D7, mac/linux): while true, a recording
+     * stays open until an explicit second press instead of finalizing on the
+     * release timeout. Hold mode never sets this.
+     */
+    this._pttLatched = false;
     /** Re-entrancy guard for the background memory tick. */
     this._memoryBusy = false;
     /** Cached memory_vectors.json content (lazy; refreshed by the memory tick). */
@@ -738,6 +748,29 @@ class LocalPipeline extends EventEmitter {
     }
     if (down) this._pttPulse();
     else this._pttRelease();
+  }
+
+  /**
+   * Toggle-mode PTT (v0.9.0 D7): latch a recording on or off. Used where no
+   * key-release event exists (mac/linux global shortcut, and the focused
+   * keyboard path under `pushToTalk.mode: "toggle"`). The first press latches
+   * on and starts recording; the second unlatches and lets it finalize.
+   * @param {boolean} latched
+   */
+  setPttLatched(latched) {
+    if (!this._started) return;
+    if (latched) {
+      this._pttLatched = true;
+      this._pttPulse();
+    } else {
+      this._pttLatched = false;
+      this._pttRelease();
+    }
+  }
+
+  /** True while a toggle-mode recording is latched open. */
+  isPttLatched() {
+    return this._pttLatched === true;
   }
 
   /**
@@ -880,6 +913,19 @@ class LocalPipeline extends EventEmitter {
   }
 
   /**
+   * Story-template onboarding directive (v0.9.0 D5), applied while the world
+   * has no committed narrator reply yet. No pending flag to clear: once the
+   * first reply is accepted into the session, the condition is false forever
+   * (and a regenerate of that first reply correctly re-applies it).
+   */
+  _firstTurnDirective() {
+    const d = this.cfg.narrativeFirstTurnDirective;
+    if (!d) return "";
+    const hasReply = (this.session?.messages ?? []).some((m) => m.role === "assistant");
+    return hasReply ? "" : d;
+  }
+
+  /**
    * One-shot template detection from KoboldCPP /api/v1/model (D5). The
    * backend may still be loading when the pipeline starts, so retry briefly;
    * a result that arrives after the first turn is ignored (no mid-session
@@ -947,7 +993,9 @@ class LocalPipeline extends EventEmitter {
         cfg,
         vectorStore: this._getMemoryVectors(),
         countTokens: this._countTokensCached,
-        template: templateName
+        template: templateName,
+        gmBestiary: this.gmBestiary ?? null,
+        extraDirective: this._firstTurnDirective()
       });
       narrativePrompt = prompt;
       this.lastContextReport = report;
@@ -1236,10 +1284,17 @@ class LocalPipeline extends EventEmitter {
         vectorStore: this._getMemoryVectors(),
         countTokens: this._countTokensCached,
         template: templateName,
-        extraDirective:
+        gmBestiary: this.gmBestiary ?? null,
+        // Regenerating the very first reply re-applies the onboarding
+        // directive (the assistant message was popped above).
+        extraDirective: [
+          this._firstTurnDirective(),
           mode === "rewrite" && instruction
             ? `Style note for this response only: ${instruction}`
             : ""
+        ]
+          .filter(Boolean)
+          .join("\n")
       });
       this.lastContextReport = report;
       if (stopSequences) narrativeGen = { ...cfg.narrative, stop_sequence: stopSequences };
@@ -1286,6 +1341,9 @@ class LocalPipeline extends EventEmitter {
     ensureDirs();
     this.session = loadSession();
     this.worldState = loadWorldState();
+    // Story-template GM reference (v0.9.0 D5) — null for blank worlds.
+    // World switches re-boot the pipeline, so this follows the active world.
+    this.gmBestiary = loadGmBestiary(getActiveWorldDir());
 
     // Fire-and-forget template detection (D5) — only for "auto", and the
     // result applies only if it lands before the first turn.
@@ -1297,6 +1355,9 @@ class LocalPipeline extends EventEmitter {
 
     const onTick = () => {
       if (!this.recording) return;
+      // Toggle mode keeps the recording open until the second press
+      // (setPttLatched(false)); the release-timeout finalize is hold-only.
+      if (this._pttLatched) return;
       if (Date.now() - this.lastSpaceAt <= cfg.spaceReleaseMs) return;
 
       const current = this.recording;

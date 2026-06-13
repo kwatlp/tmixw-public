@@ -200,6 +200,24 @@ export function retrieveMemories(ws, vectorStore, queryVec, opts) {
   return scored.slice(0, cap);
 }
 
+/** GM bestiary cap — stat lines are ~25 tokens each; 6 keeps the block under ~200. */
+const GM_BESTIARY_MAX_CREATURES = 6;
+
+/** One stat line per the template's statBlockFormat: Name (Rank) — VIT · Guard · Atk, dmg · Trait · [Flaw] · XP. */
+function gmStatLine(c) {
+  const parts = [
+    `${c.name} (${[c.rank, c.role].filter(Boolean).join(" ")})`,
+    `VIT ${c.vit ?? "?"}`,
+    `Guard ${c.guard ?? "?"}`,
+    `Atk ${c.atk ?? "?"}, ${c.damage ?? "?"}`
+  ];
+  if (c.trait) parts.push(`Trait: ${c.trait}`);
+  if (c.flaw) parts.push(`Flaw: ${c.flaw}`);
+  if (c.xp) parts.push(`XP ${c.xp}`);
+  if (c.typicalGroup) parts.push(`Group ${c.typicalGroup}`);
+  return `- ${parts.join(" · ")}`;
+}
+
 function pinnedEntries(ws) {
   const out = [];
   for (const c of ws.chapters ?? []) if (c.pinned) out.push({ kind: "chapter", entry: c });
@@ -220,6 +238,7 @@ function pinnedEntries(ws) {
  * @param {(text: string) => Promise<number | null>} [args.countTokens] - real token counter (adapter `tryCountTokens`, ideally cached); null result = backend cannot tokenize. Omitted = chars/4 budget, byte-identical to pre-v0.8.x behavior.
  * @param {string} [args.extraDirective] - one-shot directive appended to the system block (v0.6.0 rewrite-with-instruction); empty = byte-identical output
  * @param {string} [args.template] - resolved template name (plan D5); "plain" = byte-identical pre-template output
+ * @param {object[] | null} [args.gmBestiary] - story-template GM stat blocks (v0.9.0 D5); creatures named in recent speech get a narrator-only reference block. null = byte-identical output
  * @returns {Promise<{ prompt: string, report: object, stopSequences: string[] | null }>}
  */
 export async function assembleNarrativeContext({
@@ -230,7 +249,8 @@ export async function assembleNarrativeContext({
   embedQuery = getEmbedding,
   countTokens = null,
   extraDirective = "",
-  template = "plain"
+  template = "plain",
+  gmBestiary = null
 }) {
   const ws = worldState;
   const report = { ts: new Date().toISOString(), sections: [] };
@@ -320,6 +340,31 @@ export async function assembleNarrativeContext({
     titles: loreEntries.map((e) => e.title)
   });
 
+  // 4b. GM bestiary (v0.9.0 D5) — story-template stat blocks for creatures
+  // named in recent speech. Narrator reference ONLY: this block exists in
+  // the prompt and nowhere else — never world state, never the extractor's
+  // input, never the UI. Hidden Flaws ride along by design (the narrator is
+  // the GM); the extractor prompt restricts the player-facing bestiary to
+  // observed knowledge. Small fixed cap, separate from the memory budget,
+  // mirroring the lorebook's own-budget pattern.
+  let gmBlock = "";
+  if (Array.isArray(gmBestiary) && gmBestiary.length > 0 && matchBlob) {
+    const blob = matchBlob.toLowerCase();
+    const hits = gmBestiary
+      .filter((c) => {
+        const name = String(c?.name ?? "").trim().toLowerCase();
+        return name && blob.includes(name);
+      })
+      .slice(0, GM_BESTIARY_MAX_CREATURES);
+    if (hits.length > 0) {
+      gmBlock = [
+        "[GM bestiary — secret reference. Use these numbers to run the creature; reveal Traits through behavior and the Flaw only when play uncovers it. Never state these stats outright.]",
+        ...hits.map(gmStatLine)
+      ].join("\n");
+    }
+    note("gmBestiary", gmBlock, { count: hits.length, names: hits.map((c) => c.name) });
+  }
+
   // 5. vector retrieval over beats + scenes
   let retrievalBlock = "";
   let retrieved = [];
@@ -368,6 +413,7 @@ export async function assembleNarrativeContext({
         loreBlock
     );
   }
+  if (gmBlock) blocks.push(gmBlock);
   if (retrievalBlock) blocks.push(retrievalBlock);
   blocks.push(worldBlock);
 

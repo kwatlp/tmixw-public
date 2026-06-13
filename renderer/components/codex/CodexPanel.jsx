@@ -10,7 +10,7 @@ import NowMarker from "./NowMarker.jsx";
  * 340px panel for the 36px rail. STORY appends the "now" marker and the
  * quiet End scene / New chapter actions after the Chronicle group.
  */
-export default function CodexPanel({ onOpenSettings }) {
+export default function CodexPanel({ onOpenWorlds }) {
   const {
     view,
     activeTab,
@@ -82,12 +82,12 @@ export default function CodexPanel({ onOpenSettings }) {
           </button>
           <button
             type="button"
-            className="codex-icon-btn gear"
-            title="Settings"
-            aria-label="Open settings"
-            onClick={onOpenSettings}
+            className="codex-icon-btn"
+            title="Worlds"
+            aria-label="Open the world picker"
+            onClick={onOpenWorlds}
           >
-            ⚙
+            ❖
           </button>
         </nav>
 
@@ -111,6 +111,11 @@ export default function CodexPanel({ onOpenSettings }) {
           ) : searchActive && groups.length === 0 ? (
             <p style={{ color: "var(--muted)", fontFamily: "var(--sans)", fontSize: "0.82rem", margin: 0 }}>
               No matches.
+            </p>
+          ) : activeTab === "bestiary" && groups.length === 0 ? (
+            <p style={{ color: "var(--muted)", fontFamily: "var(--sans)", fontSize: "0.82rem", margin: 0 }}>
+              Your field journal is empty. Entries appear here as you encounter
+              creatures — only what you've seen or been told.
             </p>
           ) : (
             groups.map((g) => (

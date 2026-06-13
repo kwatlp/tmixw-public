@@ -592,5 +592,29 @@ await check("stopGeneration: stream-scoped abort fires immediately during extrac
   pl.stop();
 });
 
+// --- Story-template onboarding (v0.9.0 D5) ----------------------------------
+
+await check("first-turn directive: in the first narrator prompt, gone once a reply is committed", async () => {
+  const { pl, calls } = makePipeline({
+    fileCfg: {
+      narrative: { acceptGraceMs: 0, template: "plain", stream: false },
+      narrativeFirstTurnDirective: "RUN THE CHARACTER FORGE NOW."
+    }
+  });
+  await runTurn(pl, "I enter the chapterhouse.");
+  assert.ok(
+    calls.narrative[0].includes("RUN THE CHARACTER FORGE NOW."),
+    "directive must reach the first prompt's system block"
+  );
+  await pl._postAcceptPromise;
+  await runTurn(pl, "I look at the quest board.");
+  assert.equal(calls.narrative.length, 2);
+  assert.ok(
+    !calls.narrative[1].includes("RUN THE CHARACTER FORGE NOW."),
+    "directive is one-shot — never after the first committed reply"
+  );
+  pl.stop();
+});
+
 console.log(failures > 0 ? `\n${failures} failure(s)` : "\nAll acceptance tests passed");
 process.exit(failures > 0 ? 1 : 0);

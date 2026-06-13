@@ -22,6 +22,7 @@ import {
   userDataModelsDir,
   userDataBinDir
 } from "../core/bin_paths.js";
+import { resolvePttMode } from "../core/ptt_mode.js";
 
 const require = createRequire(import.meta.url);
 const log = require("electron-log/main");
@@ -56,6 +57,17 @@ function currentPttKey() {
 function initPttKeyFromConfig(cfg) {
   const code = String(cfg?.pushToTalk?.key ?? "").trim();
   if (code && PTT_KEYS[code]) currentPttCode = code;
+}
+
+/** Effective PTT mode for the live config (hold on Windows, toggle elsewhere, unless overridden). */
+function pttMode() {
+  return resolvePttMode(liveFileCfg);
+}
+
+/** Toggle-mode press: flip the pipeline latch (start ↔ stop). No-op without a pipeline. */
+function togglePttLatch() {
+  if (!pipeline) return;
+  pipeline.setPttLatched(!pipeline.isPttLatched());
 }
 
 let mainProcessFileLogHooked = false;
@@ -145,17 +157,9 @@ function appRoot() {
 async function preparePackagedWritableCore(bundleRoot, userDataCore) {
   await fs.promises.mkdir(userDataCore, { recursive: true });
   process.env.LOCAL_AI_WRITABLE_CORE = userDataCore;
-  for (const name of ["world_state.json"]) {
-    const from = path.join(bundleRoot, "core", name);
-    const to = path.join(userDataCore, name);
-    try {
-      if (fs.existsSync(from) && !fs.existsSync(to)) {
-        fs.copyFileSync(from, to);
-      }
-    } catch {
-      // ignore seed failures
-    }
-  }
+  // v0.9.0: no world_state.json seeding — `ensureWorldsLayout()` creates the
+  // first world on a fresh install (seeding here would fabricate a "legacy"
+  // save for the migration to convert).
   // Phase 4: do not auto-copy `config.json` here — first-run wizard writes
   // `%AppData%/Roaming/tmixw/core/config.json` with `wizardComplete: true`.
 }
@@ -224,6 +228,33 @@ function serializeLoreDetailed(d) {
 function needsWizard(cfg) {
   if (!cfg || typeof cfg !== "object") return true;
   return cfg.wizardComplete !== true;
+}
+
+/** @param {Record<string, unknown>} cfg */
+function buildWizardPrefill(cfg) {
+  if (!cfg || typeof cfg !== "object") return null;
+  /** @type {Record<string, string>} */
+  const prefill = {};
+  for (const k of [
+    "whisperBin",
+    "whisperModel",
+    "ffmpegBin",
+    "koboldBin",
+    "koboldModel"
+  ]) {
+    const v = String(cfg[k] ?? "").trim();
+    if (v && fs.existsSync(v)) prefill[k] = v;
+  }
+  const sttBackend = String(cfg.sttBackend ?? "").trim();
+  if (sttBackend) prefill.sttBackend = sttBackend;
+  const sttCustomBin = String(cfg.sttCustomBin ?? "").trim();
+  if (sttCustomBin) prefill.sttCustomBin = sttCustomBin;
+  if (cfg.sttCustomArgs != null) {
+    prefill.sttCustomArgs = String(cfg.sttCustomArgs);
+  }
+  const mic = String(cfg.ffmpegDshowAudioDevice ?? "").trim();
+  if (mic) prefill.ffmpegDshowAudioDevice = mic;
+  return Object.keys(prefill).length ? prefill : null;
 }
 
 /**
@@ -322,6 +353,10 @@ async function startKoboldCpp(koboldBin, modelPath, port = KOBOLD_PORT) {
   try {
     koboldProcess = spawn(koboldBin, args, {
       windowsHide: true,
+      // posix: own process group (group leader) so the whole tree can be
+      // killed with `process.kill(-pid, ...)` on quit (D7 tree-kill); Windows
+      // uses taskkill /T and ignores `detached`.
+      detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"]
     });
   } catch (e) {
@@ -391,6 +426,14 @@ function stopKoboldIfStartedByUs() {
       execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore", timeout: 5000 });
     } catch {
       try { koboldProcess.kill(); } catch { /* ignore */ }
+    }
+  } else if (pid) {
+    // posix: kobold was spawned detached (own group), so kill the whole tree
+    // by negating the pid; fall back to the bare process if the group is gone.
+    try {
+      process.kill(-pid, "SIGKILL");
+    } catch {
+      try { koboldProcess.kill("SIGKILL"); } catch { /* ignore */ }
     }
   } else {
     try {
@@ -503,6 +546,12 @@ function updateGlobalPttShortcut(accelerator) {
         console.warn("[ptt] globalShortcut PTT: pipeline null");
         return;
       }
+      // Toggle mode (mac/linux default): globalShortcut has no key-release
+      // event, so each press flips the latch instead of starting a hold.
+      if (pttMode() === "toggle") {
+        togglePttLatch();
+        return;
+      }
       pttFromUnfocusedShortcut = true;
       pttSpaceChordActive = true;
       pipeline.setPttState(true);
@@ -553,6 +602,13 @@ function createMainWindow(resolved, _fileCfg) {
   mainWindow.webContents.on("before-input-event", (event, input) => {
     if (resolved.stdinPtt !== false) return;
     if (input.code !== currentPttCode || input.isAutoRepeat) return;
+    // Toggle mode: keyDown flips the latch, keyUp is ignored (consistent with
+    // the unfocused global-shortcut path so behavior never depends on focus).
+    if (pttMode() === "toggle") {
+      if (input.type === "keyDown") togglePttLatch();
+      event.preventDefault();
+      return;
+    }
     if (input.type === "keyDown") {
       console.log(`[ptt] before-input-event ${currentPttCode} keyDown`, {
         hasPipeline: Boolean(pipeline),
@@ -633,10 +689,10 @@ async function registerAppProtocol() {
  *   mergedLorebookMatchesDetailed: typeof import("../core/world_state.js").mergedLorebookMatchesDetailed
  * }} ws
  * @param {typeof import("../core/codex.js")} codex
- * @param {{ bootPipelineFromDisk: () => Promise<void> }} lifecycle
+ * @param {{ bootPipelineFromDisk: () => Promise<void>, worlds: typeof import("../core/worlds.js"), storyTemplates: typeof import("../core/story_templates.js") }} lifecycle
  */
 function registerIpcHandlers(ws, codex, lifecycle) {
-  const { bootPipelineFromDisk } = lifecycle;
+  const { bootPipelineFromDisk, worlds, storyTemplates } = lifecycle;
   const {
     loadWorldState,
     saveWorldState,
@@ -663,11 +719,15 @@ function registerIpcHandlers(ws, codex, lifecycle) {
     return result;
   };
 
-  ipcMain.handle("app:getBootstrap", () => ({
-    needsWizard: needsWizard(liveFileCfg),
-    hasBundledModel: hasBundledGgufModel(),
-    platform: process.platform
-  }));
+  ipcMain.handle("app:getBootstrap", () => {
+    const needs = needsWizard(liveFileCfg);
+    return {
+      needsWizard: needs,
+      hasBundledModel: hasBundledGgufModel(),
+      platform: process.platform,
+      wizardPrefill: needs ? buildWizardPrefill(liveFileCfg) : null
+    };
+  });
 
   ipcMain.handle("kobold:status", async () => {
     const backend = liveFileCfg.inference?.backend ?? "koboldcpp";
@@ -1079,6 +1139,26 @@ function registerIpcHandlers(ws, codex, lifecycle) {
     return { canceled: false, path: r.filePaths[0] };
   });
 
+  ipcMain.handle("wizard:restart", async () => {
+    if (pipeline) {
+      pipeline.removeAllListeners();
+      pipeline.stop();
+      pipeline = null;
+    }
+    worlds.clearAllWorlds();
+    const next = { ...liveFileCfg, wizardComplete: false };
+    await fs.promises.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+    await fs.promises.writeFile(
+      CONFIG_PATH,
+      JSON.stringify(next, null, 2) + "\n",
+      "utf8"
+    );
+    liveFileCfg = next;
+    app.relaunch();
+    app.quit();
+    return { ok: true };
+  });
+
   ipcMain.handle("wizard:complete", async (_e, payload) => {
     const p = payload && typeof payload === "object" ? payload : {};
     const examplePath = path.join(bundleRoot, "core", "config.example.json");
@@ -1189,6 +1269,108 @@ function registerIpcHandlers(ws, codex, lifecycle) {
   });
 
   ipcMain.handle("world:get", () => loadWorldState());
+
+  // --- Worlds (v0.9.0 M2) --------------------------------------------------
+  // Multi-world picker. Switch order is contractual (plan D2): stop the
+  // pipeline, repoint the path seam, then boot fresh from the new world's
+  // disk — never swap paths under a running pipeline.
+
+  /** Registry snapshot for the picker: `{ activeWorldId, worlds: [...] }`. */
+  const worldsSnapshot = () =>
+    worlds.loadWorldsRegistry() ?? { activeWorldId: null, worlds: [] };
+
+  const switchToWorld = async (id) => {
+    if (pipeline) {
+      pipeline.removeAllListeners();
+      pipeline.stop();
+      pipeline = null;
+    }
+    worlds.activateWorld(id);
+    if (!needsWizard(liveFileCfg)) {
+      await bootPipelineFromDisk();
+      // renderer:ready only fires on window mount — a switched-in pipeline
+      // must be started here or it sits idle (and worldState stays unset,
+      // which the renderer's world:updated handler would silently drop).
+      pipeline?.start();
+    }
+    const state = pipeline?.worldState ?? loadWorldState();
+    sendToRenderer("worlds:changed", worldsSnapshot());
+    sendToRenderer("world:updated", { worldState: state });
+  };
+
+  ipcMain.handle("worlds:list", () => worldsSnapshot());
+
+  /** Installed story templates for the new-world flow (v0.9.0 D5). */
+  ipcMain.handle("worlds:templates", () =>
+    storyTemplates.discoverTemplates().map(({ id, name, tagline, genre, summary }) => ({
+      id,
+      name,
+      tagline,
+      genre,
+      summary
+    }))
+  );
+
+  ipcMain.handle("worlds:create", async (_e, payload) => {
+    const templateId = String(payload?.templateId ?? "").trim();
+    let meta = null;
+    try {
+      meta = worlds.createWorld({
+        name: String(payload?.name ?? "").trim(),
+        templateId: templateId || null
+      });
+      if (templateId) {
+        const template = storyTemplates
+          .discoverTemplates()
+          .find((t) => t.id === templateId);
+        if (!template) throw new Error(`Unknown story template: ${templateId}`);
+        const patch = storyTemplates.applyTemplate(worlds.getWorldDir(meta.id), template);
+        worlds.saveWorldMeta({ ...meta, ...patch });
+      }
+      await switchToWorld(meta.id);
+      return { ok: true, world: meta, ...worldsSnapshot() };
+    } catch (e) {
+      // A half-applied template is a broken world — trash it (never the
+      // active world; we only get here before the switch).
+      if (meta) {
+        try {
+          worlds.deleteWorldToTrash(meta.id);
+        } catch {
+          // best-effort cleanup
+        }
+      }
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle("worlds:switch", async (_e, id) => {
+    try {
+      await switchToWorld(String(id ?? ""));
+      return { ok: true, ...worldsSnapshot() };
+    } catch (e) {
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle("worlds:rename", (_e, id, name) => {
+    try {
+      const meta = worlds.renameWorld(String(id ?? ""), name);
+      sendToRenderer("worlds:changed", worldsSnapshot());
+      return { ok: true, world: meta, ...worldsSnapshot() };
+    } catch (e) {
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle("worlds:delete", (_e, id) => {
+    try {
+      const { trashedTo } = worlds.deleteWorldToTrash(String(id ?? ""));
+      sendToRenderer("worlds:changed", worldsSnapshot());
+      return { ok: true, trashedTo, ...worldsSnapshot() };
+    } catch (e) {
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
 
   ipcMain.handle("world:resetSections", (_e, sections) => {
     if (pipeline) return pipeline.resetWorldSections(sections);
@@ -1476,7 +1658,10 @@ function registerIpcHandlers(ws, codex, lifecycle) {
   ipcMain.handle("settings:save", async (_e, cfg) => {
     if (!cfg || typeof cfg !== "object") throw new Error("Invalid config");
     const prevInference = JSON.stringify(liveFileCfg.inference ?? null);
-    const merged = { ...liveFileCfg, ...cfg, wizardComplete: true };
+    const merged = { ...liveFileCfg, ...cfg };
+    if (cfg.wizardComplete !== false) {
+      merged.wizardComplete = true;
+    }
     await fs.promises.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
     await fs.promises.writeFile(
       CONFIG_PATH,
@@ -1783,12 +1968,25 @@ async function main() {
     "lore_correction.txt"
   );
 
-  const [{ createPipeline, resolvePipelineConfig }, ws, codexModule] =
+  const [{ createPipeline, resolvePipelineConfig }, ws, codexModule, worlds, storyTemplates] =
     await Promise.all([
       import("../core/pipeline.js"),
       import("../core/world_state.js"),
-      import("../core/codex.js")
+      import("../core/codex.js"),
+      import("../core/worlds.js"),
+      import("../core/story_templates.js")
     ]);
+
+  // Migrate a legacy flat save / repair the registry / create the first
+  // world, and pin app_paths to the active world — before anything below
+  // (pipeline boot, IPC handlers) reads or writes world-scoped files.
+  const worldBoot = worlds.ensureWorldsLayout();
+  if (worldBoot.migrated) {
+    console.log(
+      `[worlds] migrated legacy save into worlds/${worldBoot.activeWorldId} ` +
+        `(${(worldBoot.movedFiles ?? []).join(", ")}; backup: ${worldBoot.backupPath ?? "none"})`
+    );
+  }
 
   narrativeSystemText =
     loadTextIfExists(NARRATIVE_SYSTEM_PATH)?.trim() ||
@@ -1806,10 +2004,29 @@ async function main() {
       pipeline.stop();
       pipeline = null;
     }
-    const mergedFile = { ...liveFileCfg, stdinPtt: false };
+    // Story-template world overrides (v0.9.0 D5), all world-scoped via
+    // world.json. Narrator precedence: world override → settings
+    // `narrative._systemPrompt` → bundled prompt ("append" stacks the
+    // template manual on whichever base would otherwise win). narrator.config
+    // merges over config.json.narrative for this boot only — the global
+    // config.json is never touched.
+    const worldMeta = worlds.getActiveWorldMeta();
+    const wn = worldMeta?.narrator ?? null;
+    const baseSystem = resolveNarrativeSystem();
+    const narrativeSystem = wn?.systemPrompt
+      ? wn.promptMode === "append"
+        ? `${baseSystem}\n\n${wn.systemPrompt}`
+        : wn.systemPrompt
+      : baseSystem;
+    const mergedFile = {
+      ...liveFileCfg,
+      stdinPtt: false,
+      narrative: { ...(liveFileCfg.narrative ?? {}), ...(wn?.config ?? {}) },
+      narrativeFirstTurnDirective: worldMeta?.onboarding?.firstMessageHint ?? ""
+    };
     const resolved = resolvePipelineConfig(
       mergedFile,
-      resolveNarrativeSystem(),
+      narrativeSystem,
       resolveExtractorSystem(),
       loreCorrectionSystemText
     );
@@ -1818,7 +2035,7 @@ async function main() {
     await startKoboldFromConfig();
   }
 
-  registerIpcHandlers(ws, codexModule, { bootPipelineFromDisk });
+  registerIpcHandlers(ws, codexModule, { bootPipelineFromDisk, worlds, storyTemplates });
 
   if (!wizardRequired) {
     await bootPipelineFromDisk();
@@ -1844,6 +2061,8 @@ async function main() {
       );
       pttKeyReleasePoll = setInterval(() => {
         if (!pipeline?.recording) return;
+        // Hold-mode only; toggle drives stop from the press itself.
+        if (pttMode() !== "hold") return;
         if (!pttFromUnfocusedShortcut && !pttSpaceChordActive) return;
         const down =
           (GetAsyncKeyState(currentPttKey().vk) & 0x8000) !== 0;

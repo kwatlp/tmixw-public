@@ -31,7 +31,7 @@
   },
   "expect": {
     "world_after": {
-      "schemaVersion": 4,
+      "schemaVersion": 5,
       "npcs": [{ "name": "Mira", "status": "alive" }],
       "lorebook": [
         { "title": "Old Lore", "content": "Stands." },

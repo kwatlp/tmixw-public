@@ -1,16 +1,21 @@
 {
   "name": "local-ai-assistant-vtt",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
   "description": "tmixw — local voice-to-text-to-LLM narrative stack (Phase 1 pipeline, Phase 2 character + lore including vector retrieval).",
+  "author": "tmíxʷ project",
   "scripts": {
     "pipeline:test": "node core/pipeline_test.js",
     "fixtures:test": "node scripts/run_fixtures.js",
     "memory:test": "node scripts/memory_test.js",
     "acceptance:test": "node scripts/acceptance_test.js",
+    "worlds:test": "node scripts/worlds_test.js",
     "templates:test": "node scripts/templates_test.js",
+    "story_templates:test": "node scripts/story_templates_test.js",
+    "ptt:test": "node scripts/ptt_test.js",
+    "test": "node scripts/run_fixtures.js && node scripts/acceptance_test.js && node scripts/worlds_test.js && node scripts/story_templates_test.js && node scripts/ptt_test.js && node scripts/templates_test.js && node scripts/context_test.js && node scripts/memory_test.js && node scripts/inference_test.js && node scripts/imagegen_test.js",
     "imagegen:test": "node scripts/imagegen_test.js",
     "inference:test": "node scripts/inference_test.js",
     "context:test": "node scripts/context_test.js",
@@ -68,8 +73,13 @@
       "electron/**/*.cjs",
       "core/**/*.js",
       "core/**/*.json",
+      "!core/config.json",
+      "!core/config.packaged.starter.json",
       "!core/recordings/**",
+      "!core/worlds/**",
+      "!core/worlds.json",
       "prompts/**/*",
+      "templates/**/*",
       "renderer/dist/**/*",
       "art/**",
       "!art/Life Forms Icon/**",
@@ -106,7 +116,47 @@
       "shortcutName": "tmixw"
     },
     "mac": {
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "category": "public.app-category.role-playing-games",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "build/icon.icns",
+      "category": "Game",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "deb": {
+      "maintainer": "tmíxʷ project <noreply@tmixw.local>"
     },
     "extraResources": [
       {

@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld("api", {
   wizardCheckKobold: () => ipcRenderer.invoke("wizard:checkKobold"),
   wizardBrowseKobold: () => ipcRenderer.invoke("wizard:browseKobold"),
   wizardComplete: (payload) => ipcRenderer.invoke("wizard:complete", payload),
+  wizardRestart: () => ipcRenderer.invoke("wizard:restart"),
   onWizardDone: (cb) => {
     const fn = safeListener("wizard:done", () => cb());
     ipcRenderer.on("wizard:done", fn);
@@ -72,6 +73,19 @@ contextBridge.exposeInMainWorld("api", {
     const fn = safeListener("kobold:error", (_e, p) => cb(p));
     ipcRenderer.on("kobold:error", fn);
     return () => ipcRenderer.removeListener("kobold:error", fn);
+  },
+
+  // Worlds picker (v0.9.0 M2)
+  worldsList: () => ipcRenderer.invoke("worlds:list"),
+  worldsTemplates: () => ipcRenderer.invoke("worlds:templates"),
+  worldsCreate: (payload) => ipcRenderer.invoke("worlds:create", payload),
+  worldsSwitch: (id) => ipcRenderer.invoke("worlds:switch", id),
+  worldsRename: (id, name) => ipcRenderer.invoke("worlds:rename", id, name),
+  worldsDelete: (id) => ipcRenderer.invoke("worlds:delete", id),
+  onWorldsChanged: (cb) => {
+    const fn = safeListener("worlds:changed", (_e, p) => cb(p));
+    ipcRenderer.on("worlds:changed", fn);
+    return () => ipcRenderer.removeListener("worlds:changed", fn);
   },
 
   start: () => ipcRenderer.invoke("pipeline:start"),

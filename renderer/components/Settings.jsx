@@ -710,6 +710,22 @@ function InputTab({ draft, setField }) {
   };
   return (
     <div className="settings-tab-body">
+      <div className="settings-field">
+        <label className="settings-field-label">Push-to-talk mode</label>
+        <select
+          className="settings-select"
+          value={ptt.mode ?? ""}
+          onChange={(e) => setPtt("mode", e.target.value)}
+        >
+          <option value="">Default for this platform</option>
+          <option value="hold">Hold — record while the key is held</option>
+          <option value="toggle">Toggle — press to start, press again to stop</option>
+        </select>
+        <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: 4 }}>
+          Hold is the default on Windows. macOS and Linux default to toggle —
+          the OS gives no key-release event to a background window there.
+        </div>
+      </div>
       <TextField
         label="PTT accelerator key"
         value={ptt.electronAccelerator ?? "`"}
@@ -798,6 +814,7 @@ const WORLD_SECTIONS = [
     count: (w) => (w.lorebook ?? []).length,
     unit: "entries"
   },
+  { id: "bestiary", label: "Bestiary", count: (w) => (w.bestiary ?? []).length, unit: "entries" },
   { id: "session_beats", label: "Session beats", count: (w) => (w.session_beats ?? []).length, unit: "beats" }
 ];
 
@@ -887,6 +904,8 @@ function WorldDataTab() {
 function PathsTab({ draft, setField }) {
   const [mics, setMics] = useState([]);
   const [micLoading, setMicLoading] = useState(false);
+  const [confirmRestart, setConfirmRestart] = useState(false);
+  const [restarting, setRestarting] = useState(false);
 
   const refreshMics = useCallback(async () => {
     setMicLoading(true);
@@ -899,8 +918,18 @@ function PathsTab({ draft, setField }) {
 
   useEffect(() => { refreshMics(); }, [refreshMics]);
 
+  const handleConfirmRestart = useCallback(async () => {
+    setRestarting(true);
+    try {
+      await window.api.wizardRestart();
+    } catch {
+      setRestarting(false);
+      setConfirmRestart(false);
+    }
+  }, []);
+
   return (
-    <div className="settings-tab-body">
+    <div className="settings-tab-body settings-paths-tab">
       <FilePickerField
         label="Whisper binary"
         value={draft.whisperBin}
@@ -915,16 +944,6 @@ function PathsTab({ draft, setField }) {
         onChange={(path) => setField("whisperModel", path)}
         extensions={["bin"]}
       />
-      <div className="settings-field">
-        <button
-          type="button"
-          className="settings-link-btn"
-          onClick={() => setField("_rerunWizard", true)}
-          style={{ alignSelf: "flex-start" }}
-        >
-          Re-download or change Whisper model (via wizard)
-        </button>
-      </div>
       <FilePickerField
         label="FFmpeg binary"
         value={draft.ffmpegBin}
@@ -984,14 +1003,42 @@ function PathsTab({ draft, setField }) {
           extensions={["png"]}
         />
       )}
-      <div className="settings-divider" />
-      <button
-        type="button"
-        className="settings-danger-btn"
-        onClick={() => setField("_rerunWizard", true)}
-      >
-        Re-run setup wizard
-      </button>
+      <div className="settings-paths-footer">
+        {confirmRestart ? (
+          <div className="settings-restart-wizard-confirm">
+            <p className="settings-restart-wizard-warning">
+              This permanently deletes all worlds and save data, then restarts the
+              setup wizard. Software paths (Whisper, FFmpeg, KoboldCPP) are kept.
+            </p>
+            <div className="settings-restart-wizard-actions">
+              <button
+                type="button"
+                className="settings-danger-btn"
+                disabled={restarting}
+                onClick={handleConfirmRestart}
+              >
+                {restarting ? "Restarting…" : "Delete worlds & restart wizard"}
+              </button>
+              <button
+                type="button"
+                className="settings-cancel-btn"
+                disabled={restarting}
+                onClick={() => setConfirmRestart(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="settings-danger-btn"
+            onClick={() => setConfirmRestart(true)}
+          >
+            Restart Setup Wizard
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1059,19 +1106,10 @@ export default function Settings({ onClose }) {
     if (!draft) return;
     setSaving(true);
     try {
-      if (draft._rerunWizard) {
-        const saveCfg = { ...draft, wizardComplete: false };
-        delete saveCfg._rerunWizard;
-        await window.api.settingsSave(saveCfg);
-        await window.api.settingsRelaunch();
-        return;
-      }
-      const saveCfg = { ...draft };
-      delete saveCfg._rerunWizard;
-      await window.api.settingsSave(saveCfg);
+      await window.api.settingsSave(draft);
       setSaved(true);
       if (restartFieldsChanged(draft, original)) setNeedsRestart(true);
-      setOriginal(saveCfg);
+      setOriginal(draft);
       setTimeout(() => setSaved(false), 2500);
     } catch { /* ignore */ }
     setSaving(false);

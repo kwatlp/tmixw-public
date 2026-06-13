@@ -1,0 +1,78 @@
+{
+  "name": "bestiary_upsert_merges_by_name",
+  "kind": "diff-apply",
+  "notes": "Re-sighting a known creature (case-insensitive name match) increments encounters, unions knownTraits without duplicates, and updates rank/notes when provided. A new creature is created with encounters 1 and firstSeen defaulting to current_location. The model's own encounters count is ignored.",
+  "world_before": {
+    "schemaVersion": 5,
+    "character": {},
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "bestiary": [
+      {
+        "id": "beast_1",
+        "name": "Gnasher",
+        "rank": "E",
+        "discovered": true,
+        "encounters": 1,
+        "knownTraits": ["pack tactics"],
+        "notes": "Cowardly alone.",
+        "firstSeen": "Emberreach Mine"
+      }
+    ],
+    "correction_history": [],
+    "current_location": "Ashfall Pass",
+    "codex": {
+      "groups": [],
+      "membership": {},
+      "groupOrder": {},
+      "prov": {},
+      "isNew": {},
+      "extraFields": {}
+    }
+  },
+  "diff": {
+    "bestiary": [
+      {
+        "name": "gnasher",
+        "encounters": 99,
+        "knownTraits": ["Pack Tactics", "fears fire"],
+        "notes": "A whole pack hunts the pass at dusk."
+      },
+      {
+        "name": "Ash Wraith",
+        "rank": "C",
+        "knownTraits": ["passes through stone"]
+      }
+    ]
+  },
+  "expect": {
+    "world_after": {
+      "bestiary": [
+        {
+          "id": "beast_1",
+          "name": "Gnasher",
+          "rank": "E",
+          "discovered": true,
+          "encounters": 2,
+          "knownTraits": ["pack tactics", "fears fire"],
+          "notes": "A whole pack hunts the pass at dusk.",
+          "firstSeen": "Emberreach Mine"
+        },
+        {
+          "name": "Ash Wraith",
+          "rank": "C",
+          "discovered": true,
+          "encounters": 1,
+          "knownTraits": ["passes through stone"],
+          "notes": "",
+          "firstSeen": "Ashfall Pass"
+        }
+      ]
+    }
+  }
+}

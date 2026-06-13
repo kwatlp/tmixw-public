@@ -9,18 +9,19 @@
  * Pure data ops on a loaded world state — callers save and emit.
  */
 
-export const CODEX_TABS = ["story", "cast", "world"];
+export const CODEX_TABS = ["story", "cast", "world", "bestiary"];
 
 /** Built-in group ids are fixed strings; they are not stored in `codex.groups`. */
 export const BUILTIN_GROUP_IDS = {
   story: ["story:threads", "story:chronicle"],
   cast: ["cast:you", "cast:ungrouped"],
-  world: ["world:ungrouped"]
+  world: ["world:ungrouped"],
+  bestiary: ["bestiary:ungrouped"]
 };
 
 let _nextEntryId = Date.now();
 
-/** @param {string} prefix - "npc" | "quest" | "lore" | "grp" */
+/** @param {string} prefix - "npc" | "quest" | "lore" | "beast" | "grp" */
 export function genEntryId(prefix) {
   return `${prefix}_${(_nextEntryId++).toString(36)}`;
 }
@@ -61,6 +62,7 @@ export function entryTab(entryId) {
   if (id === "pc" || id.startsWith("npc_")) return "cast";
   if (id.startsWith("quest_")) return "story";
   if (id.startsWith("lore_")) return "world";
+  if (id.startsWith("beast_")) return "bestiary";
   if (id.startsWith("beat_") || id.startsWith("scene_") || id.startsWith("chap_")) {
     return "story";
   }
@@ -75,13 +77,16 @@ export function isChronicleEntryId(entryId) {
 
 /**
  * Resolve an entry id to its backing record.
- * @returns {{ kind: "character"|"npc"|"quest"|"lore"|"chronicle", record: object|null } | null}
+ * @returns {{ kind: "character"|"npc"|"quest"|"lore"|"beast"|"chronicle", record: object|null } | null}
  */
 export function codexResolveEntry(ws, entryId) {
   const id = String(entryId ?? "");
   if (id === "pc") return { kind: "character", record: ws.character };
   if (id.startsWith("npc_")) {
     return { kind: "npc", record: (ws.npcs ?? []).find((r) => r?.id === id) ?? null };
+  }
+  if (id.startsWith("beast_")) {
+    return { kind: "beast", record: (ws.bestiary ?? []).find((r) => r?.id === id) ?? null };
   }
   if (id.startsWith("quest_")) {
     return { kind: "quest", record: (ws.quests ?? []).find((r) => r?.id === id) ?? null };
@@ -149,15 +154,18 @@ export function codexEditField(ws, entryId, fieldKey, value) {
     if (badKey(k)) return { ok: false, reason: "bad field key" };
     ws.character[k] = typeof value === "string" ? value : value ?? "";
     stampProv(ws, "pc", k, "you");
-  } else if (resolved.kind === "npc" || resolved.kind === "quest") {
+  } else if (resolved.kind === "npc" || resolved.kind === "quest" || resolved.kind === "beast") {
     const record = resolved.record;
-    const nameKey = resolved.kind === "npc" ? "name" : "title";
+    const nameKey = resolved.kind === "quest" ? "title" : "name";
     const k = key === "$name" ? nameKey : key;
     if (badKey(k)) return { ok: false, reason: "bad field key" };
     if (k === nameKey) {
       const name = String(value ?? "").trim();
       if (!name) return { ok: false, reason: "name cannot be empty" };
       record[nameKey] = name;
+    } else if (resolved.kind === "beast" && k === "knownTraits") {
+      record.knownTraits = keywordsFromValue(value);
+      stampProv(ws, entryId, k, "you");
     } else {
       record[k] = typeof value === "string" ? value : value ?? "";
       stampProv(ws, entryId, k, "you");
@@ -336,7 +344,7 @@ export function codexGroupDelete(ws, groupId) {
 export function pruneCodex(ws) {
   const cx = ensureCodex(ws);
   const valid = new Set(["pc"]);
-  for (const list of [ws.npcs, ws.quests, ws.lorebook, ws.chapters, ws.scenes, ws.session_beats]) {
+  for (const list of [ws.npcs, ws.quests, ws.lorebook, ws.bestiary, ws.chapters, ws.scenes, ws.session_beats]) {
     for (const r of list ?? []) {
       if (r && typeof r === "object" && typeof r.id === "string") valid.add(r.id);
     }

@@ -1,0 +1,33 @@
+{
+  "name": "migration_v4_to_v5",
+  "kind": "migrate",
+  "notes": "v5 (bestiary, v0.9.0 D6) adds bestiary: [] and stamps beast_ ids on hand-seeded entries. Deliberately tiny; runner also asserts idempotency.",
+  "world_before": {
+    "schemaVersion": 4,
+    "character": { "name": "Kael" },
+    "npcs": [{ "id": "npc_1", "name": "Mira", "status": "alive", "notes": "" }],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "correction_history": [],
+    "current_location": "",
+    "codex": {
+      "groups": [],
+      "membership": {},
+      "groupOrder": {},
+      "prov": {},
+      "isNew": {},
+      "extraFields": {}
+    }
+  },
+  "expect": {
+    "world_after": {
+      "schemaVersion": 5,
+      "bestiary": [],
+      "npcs": [{ "name": "Mira" }]
+    }
+  }
+}

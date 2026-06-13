@@ -1,0 +1,53 @@
+{
+  "name": "migration_v4_to_v5_seeded_bestiary",
+  "kind": "migrate",
+  "notes": "A v4 save with a hand-added bestiary array (e.g. an early template experiment): the v5 migration keeps the entries and stamps beast_ ids. Ids are generated, so expectations assert only stable fields plus the id prefix via world_after shape.",
+  "world_before": {
+    "schemaVersion": 4,
+    "character": {},
+    "npcs": [],
+    "quests": [],
+    "locations": [],
+    "session_beats": [],
+    "scenes": [],
+    "chapters": [],
+    "lorebook": [],
+    "bestiary": [
+      {
+        "name": "Gnasher",
+        "rank": "E",
+        "discovered": true,
+        "encounters": 1,
+        "knownTraits": ["pack tactics"],
+        "notes": "Mange-furred mine-hounds. Cowardly alone.",
+        "firstSeen": "Day 1 · Emberreach Mine"
+      }
+    ],
+    "correction_history": [],
+    "current_location": "",
+    "codex": {
+      "groups": [],
+      "membership": {},
+      "groupOrder": {},
+      "prov": {},
+      "isNew": {},
+      "extraFields": {}
+    }
+  },
+  "expect": {
+    "world_after": {
+      "schemaVersion": 5,
+      "bestiary": [
+        {
+          "name": "Gnasher",
+          "rank": "E",
+          "discovered": true,
+          "encounters": 1,
+          "knownTraits": ["pack tactics"],
+          "notes": "Mange-furred mine-hounds. Cowardly alone.",
+          "firstSeen": "Day 1 · Emberreach Mine"
+        }
+      ]
+    }
+  }
+}

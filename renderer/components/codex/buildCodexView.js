@@ -14,7 +14,8 @@
 export const CODEX_TABS = [
   { id: "story", label: "Story" },
   { id: "cast", label: "Cast" },
-  { id: "world", label: "World" }
+  { id: "world", label: "World" },
+  { id: "bestiary", label: "Bestiary" }
 ];
 
 function provOf(cx, entryId, key) {
@@ -264,6 +265,39 @@ function chronicleEntries(world, cx) {
   return { entries, unassignedCount: unassigned.length };
 }
 
+/**
+ * Discovered-creature field note (schema v5). `discovered` is implied by the
+ * entry existing and is skipped; rank renders as the card pill.
+ */
+function beastEntry(b, cx) {
+  const id = b.id;
+  const fields = [];
+  const keys = Object.keys(b).filter(
+    (k) => k !== "id" && k !== "name" && k !== "rank" && k !== "discovered"
+  );
+  // Stable lead order: what it does, how often met, where first seen.
+  const lead = ["knownTraits", "notes", "encounters", "firstSeen"];
+  keys.sort((a, b2) => {
+    const ia = lead.indexOf(a);
+    const ib = lead.indexOf(b2);
+    return (ia < 0 ? lead.length : ia) - (ib < 0 ? lead.length : ib);
+  });
+  for (const k of keys) {
+    fields.push(fieldFrom(k, b[k], provOf(cx, id, k)));
+  }
+  fields.push(...extraFieldsFor(cx, id));
+  const rank = String(b.rank ?? "").trim();
+  return {
+    id,
+    name: String(b.name ?? "Unknown creature"),
+    pill: rank ? { text: `Rank ${rank}`, tone: "plain" } : null,
+    isNew: !!cx?.isNew?.[id],
+    canAddField: true,
+    draggable: true,
+    fields
+  };
+}
+
 function loreEntry(e, cx) {
   const id = e.id;
   const fields = [
@@ -394,10 +428,22 @@ export default function buildCodexView(world) {
     cx
   });
 
+  // BESTIARY (schema v5) — the field journal fills as creatures are met.
+  const bestiaryTab = composeTab({
+    pool: (world.bestiary ?? [])
+      .filter((b) => b && typeof b === "object" && typeof b.id === "string")
+      .map((b) => beastEntry(b, cx)),
+    customGroups: customGroups.filter((g) => g.tab === "bestiary"),
+    fallbackId: "bestiary:ungrouped",
+    fallbackName: "Ungrouped",
+    cx
+  });
+
   return {
     story: storyGroups,
     cast,
     world: worldTab,
+    bestiary: bestiaryTab,
     /** Beats not yet rolled into a scene — drives the "End scene" action. */
     unassignedBeats: chronicle.unassignedCount
   };

@@ -12,7 +12,7 @@ import { ensureCodex, genEntryId, pruneCodex } from "./codex.js";
 
 export { getWorldStatePath };
 
-export const WORLD_STATE_SCHEMA_VERSION = 4;
+export const WORLD_STATE_SCHEMA_VERSION = 5;
 
 export function defaultWorldState() {
   const ws = {
@@ -25,6 +25,13 @@ export function defaultWorldState() {
     scenes: [],
     chapters: [],
     lorebook: [],
+    /**
+     * Discovered-creature field notes (schema v5, v0.9.0 D6). Player
+     * knowledge ONLY — what they've seen or been told. GM-side stat blocks
+     * (template `bestiary.gm.json`) never enter this section.
+     * Entry: { id, name, rank, discovered, encounters, knownTraits[], notes, firstSeen }
+     */
+    bestiary: [],
     correction_history: [],
     /** Where the player currently is (v0.7.0 D4) — set by the extractor, drives the bg gallery. */
     current_location: ""
@@ -145,6 +152,19 @@ export function migrateWorldState(parsed) {
     changed = true;
   } else {
     delete parsed.pending_extractions;
+  }
+  if (parsed.schemaVersion < 5) {
+    // v5 (bestiary, v0.9.0 D6): add the section and stamp ids on any
+    // hand-seeded entries. Deliberately tiny — lands before the template
+    // loader so `seed.bestiary` has a home.
+    if (!Array.isArray(parsed.bestiary)) parsed.bestiary = [];
+    for (const r of parsed.bestiary) {
+      if (r && typeof r === "object" && typeof r.id !== "string") {
+        r.id = genEntryId("beast");
+      }
+    }
+    parsed.schemaVersion = 5;
+    changed = true;
   }
   return changed;
 }
@@ -416,6 +436,7 @@ export function loadWorldState() {
       }
     }
     parsed.lorebook = normalizeLorebook(parsed.lorebook);
+    if (!Array.isArray(parsed.bestiary)) parsed.bestiary = [];
     if (!Array.isArray(parsed.correction_history)) parsed.correction_history = [];
     if (typeof parsed.current_location !== "string") parsed.current_location = "";
     if (typeof parsed.schemaVersion !== "number") parsed.schemaVersion = 1;
@@ -430,7 +451,8 @@ export function loadWorldState() {
     for (const [list, prefix] of [
       [parsed.npcs, "npc"],
       [parsed.quests, "quest"],
-      [parsed.lorebook, "lore"]
+      [parsed.lorebook, "lore"],
+      [parsed.bestiary, "beast"]
     ]) {
       for (const r of list) {
         if (r && typeof r === "object" && typeof r.id !== "string") {
@@ -482,6 +504,7 @@ export const EXTRACTOR_SNAPSHOT_LIMITS = {
   maxQuests: 30,
   maxSessionBeats: 10,
   maxLorebookTitles: 50,
+  maxBestiary: 25,
   maxCharacterJsonChars: 4000
 };
 
@@ -538,6 +561,15 @@ export function buildExtractorSnapshot(worldState) {
   const lorebook = (worldState.lorebook ?? [])
     .slice(0, lim.maxLorebookTitles)
     .map((e) => ({ title: e.title, keywords: e.keywords }));
+  // Known-creature digest: enough for the model to dedupe and to add only
+  // NEW observations; notes/firstSeen stay out of the prompt budget.
+  const bestiary = (worldState.bestiary ?? [])
+    .slice(0, lim.maxBestiary)
+    .map((b) => ({
+      name: b.name,
+      rank: b.rank ?? "",
+      knownTraits: b.knownTraits ?? []
+    }));
   return {
     player_character,
     npcs,
@@ -545,6 +577,7 @@ export function buildExtractorSnapshot(worldState) {
     locations,
     current_location: String(worldState.current_location ?? ""),
     lorebook,
+    bestiary,
     session_beats
   };
 }
@@ -743,6 +776,69 @@ export function applyExtractorDiff(ws, diff, opts = {}) {
     }
   }
 
+  // Bestiary (schema v5, v0.9.0 D6): player-observed creature notes only.
+  // Case-insensitive name match (lorebook precedent — models down-case
+  // creature names); merge fields; a re-sighting increments `encounters`
+  // (the model's own count is ignored — echoes would compound).
+  if (Array.isArray(diff.bestiary)) {
+    for (const b of diff.bestiary) {
+      if (!b || typeof b !== "object") continue;
+      const name = String(b.name ?? "").trim();
+      if (!name) continue;
+      const rank = String(b.rank ?? "").trim();
+      const notes = String(b.notes ?? "").trim();
+      const firstSeen = String(b.firstSeen ?? "").trim();
+      const traits = Array.isArray(b.knownTraits)
+        ? b.knownTraits.map((t) => String(t ?? "").trim()).filter(Boolean)
+        : [];
+      const keyFn = (x) => String(x?.name ?? "").trim().toLowerCase();
+      const idx = ws.bestiary.findIndex((x) => keyFn(x) === name.toLowerCase());
+      let entryId;
+      if (idx >= 0) {
+        const cur = ws.bestiary[idx];
+        if (typeof cur.id !== "string") cur.id = genEntryId("beast");
+        entryId = cur.id;
+        cur.discovered = true;
+        cur.encounters = (Number.isInteger(cur.encounters) ? cur.encounters : 0) + 1;
+        if (rank) {
+          cur.rank = rank;
+          stamp(entryId, "rank");
+        }
+        if (notes) {
+          cur.notes = notes;
+          stamp(entryId, "notes");
+        }
+        if (traits.length > 0) {
+          const seen = new Set((cur.knownTraits ?? []).map((t) => t.toLowerCase()));
+          for (const t of traits) {
+            if (!seen.has(t.toLowerCase())) {
+              cur.knownTraits = [...(cur.knownTraits ?? []), t];
+              seen.add(t.toLowerCase());
+            }
+          }
+          stamp(entryId, "knownTraits");
+        }
+      } else {
+        entryId = genEntryId("beast");
+        ws.bestiary.push({
+          id: entryId,
+          name,
+          rank,
+          discovered: true,
+          encounters: 1,
+          knownTraits: traits,
+          notes,
+          // First sighting wins; default to where the player is right now.
+          firstSeen: firstSeen || String(ws.current_location ?? "")
+        });
+        markCreated(entryId, name, "bestiary");
+        stamp(entryId, "rank");
+        stamp(entryId, "notes");
+        stamp(entryId, "knownTraits");
+      }
+    }
+  }
+
   // Where the player is now (v0.7.0 D4). Also added to the visited locations
   // list (without touching an existing entry's description) so the gallery
   // and scene logic share one name set.
@@ -774,6 +870,7 @@ const DIFF_SECTION_MAP = {
   quests: "quests",
   locations: "locations",
   lorebook: "lorebook",
+  bestiary: "bestiary",
   session_beat: "session_beats"
 };
 
@@ -838,6 +935,7 @@ export const RESETTABLE_SECTIONS = [
   "quests",
   "locations",
   "lorebook",
+  "bestiary",
   "session_beats"
 ];
 

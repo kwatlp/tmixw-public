@@ -65,7 +65,17 @@ body {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* Clear the app-level settings gear (26px btn + 16px inset + gap). */
+  padding-top: 42px;
   padding-bottom: 12px;
+}
+
+/* Settings gear — pinned top-right, outside the codex tab row. */
+.app-settings-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
 }
 
 /* Location-bound background crossfade (v0.7.0): two stacked layers, the

@@ -90,6 +90,7 @@ export default function Wizard({ onDone }) {
 
   const [busy, setBusy] = useState(false);
   const [finishError, setFinishError] = useState("");
+  const micPrefillRef = useRef("");
 
   const handleBrowseAgentBin = useCallback(async () => {
     try {
@@ -123,6 +124,36 @@ export default function Wizard({ onDone }) {
         if (cancelled) return;
         setHasBundledModel(Boolean(b?.hasBundledModel));
         if (b?.platform) setPlatform(b.platform);
+        const pf = b?.wizardPrefill;
+        if (!pf) return;
+        if (pf.ffmpegBin) {
+          setFfmpegPath(pf.ffmpegBin);
+          setFfmpegStatus("found");
+        }
+        if (pf.whisperBin) {
+          setWhisperCliBinPath(pf.whisperBin);
+          setWhisperCliStatus("found");
+        }
+        if (pf.whisperModel) {
+          setWhisperPath(pf.whisperModel);
+          setWhisperStatus("done");
+        }
+        if (pf.koboldBin) {
+          setKoboldBinPath(pf.koboldBin);
+          setKoboldStatus("found");
+        }
+        if (pf.koboldModel) {
+          setModelPath(pf.koboldModel);
+        }
+        if (pf.sttBackend === "custom" || pf.sttBackend === "whisper-cpp") {
+          setSttBackend(pf.sttBackend);
+        }
+        if (pf.sttCustomBin) setCustomSttBin(pf.sttCustomBin);
+        if (pf.sttCustomArgs != null) setCustomSttArgs(pf.sttCustomArgs);
+        if (pf.ffmpegDshowAudioDevice) {
+          micPrefillRef.current = pf.ffmpegDshowAudioDevice;
+          setMic(pf.ffmpegDshowAudioDevice);
+        }
       } catch {
         if (cancelled) return;
         setHasBundledModel(false);
@@ -150,10 +181,10 @@ export default function Wizard({ onDone }) {
   }, []);
 
   useEffect(() => {
-    if (step === 2) {
+    if (step === 2 && !ffmpegPath) {
       checkFfmpeg();
     }
-  }, [step, checkFfmpeg]);
+  }, [step, checkFfmpeg, ffmpegPath]);
 
   const handleDownloadFfmpeg = useCallback(async () => {
     setFfmpegStatus("downloading");
@@ -183,7 +214,12 @@ export default function Wizard({ onDone }) {
       const r = await window.api.wizardListMics();
       const devices = Array.isArray(r?.devices) ? r.devices : [];
       setMics(devices);
-      setMic(devices[0] ?? "");
+      const preferred = micPrefillRef.current;
+      if (preferred && devices.includes(preferred)) {
+        setMic(preferred);
+      } else {
+        setMic(devices[0] ?? "");
+      }
     } catch (e) {
       setMicError(e?.message ?? String(e));
     }
@@ -265,10 +301,10 @@ export default function Wizard({ onDone }) {
   }, []);
 
   useEffect(() => {
-    if (step === 3) {
+    if (step === 3 && !whisperCliBinPath) {
       checkWhisperCli();
     }
-  }, [step, checkWhisperCli]);
+  }, [step, checkWhisperCli, whisperCliBinPath]);
 
   const handleBrowseWhisperCli = useCallback(async () => {
     try {
@@ -296,10 +332,10 @@ export default function Wizard({ onDone }) {
   }, []);
 
   useEffect(() => {
-    if (step === 6) {
+    if (step === 6 && !koboldBinPath) {
       checkKobold();
     }
-  }, [step, checkKobold]);
+  }, [step, checkKobold, koboldBinPath]);
 
   const handleBrowseKobold = useCallback(async () => {
     try {

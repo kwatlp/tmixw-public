@@ -6,6 +6,7 @@ import NarrativePanel from "./components/NarrativePanel.jsx";
 import VoiceHud from "./components/VoiceHud.jsx";
 import InputBar from "./components/InputBar.jsx";
 import Settings from "./components/Settings.jsx";
+import WorldsModal from "./components/WorldsModal.jsx";
 
 const defaultBg = "art/backgroundimage.jpg";
 
@@ -24,6 +25,7 @@ export default function MainApp() {
   const [thinking, setThinking] = useState(false);
   const [turns, setTurns] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [worldsOpen, setWorldsOpen] = useState(false);
   /** Latest narrator response not yet committed (v0.6.0 acceptance model). */
   const [pending, setPending] = useState(null);
   /** True while narrator tokens are streaming into the last row (v0.7.0). */
@@ -225,6 +227,20 @@ export default function MainApp() {
     };
   }, []);
 
+  // World switch (v0.9.0): the transcript belongs to the old world — clear
+  // it and all in-flight turn state. The codex re-derives itself from the
+  // fresh world:updated the main process emits right after this event.
+  useEffect(() => {
+    const off = window.api.onWorldsChanged(() => {
+      setTurns([]);
+      setPending(null);
+      setThinking(false);
+      setStreaming(false);
+      streamedRef.current = false;
+    });
+    return () => off();
+  }, []);
+
   // Restore the pending indicator after a renderer remount mid-grace-window.
   useEffect(() => {
     let cancelled = false;
@@ -259,8 +275,17 @@ export default function MainApp() {
       <BorderFrame borderMode={ui.borderMode} borderImage={ui.borderImage} />
 
       <div className="ui-root">
+        <button
+          type="button"
+          className="codex-icon-btn gear app-settings-btn"
+          title="Settings"
+          aria-label="Open settings"
+          onClick={() => setSettingsOpen(true)}
+        >
+          ⚙
+        </button>
         <CodexProvider reveal={reveal}>
-          <CodexPanel onOpenSettings={() => setSettingsOpen(true)} />
+          <CodexPanel onOpenWorlds={() => setWorldsOpen(true)} />
         </CodexProvider>
         <div className="narrative-col">
           <NarrativePanel
@@ -285,6 +310,7 @@ export default function MainApp() {
       </div>
 
       {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
+      {worldsOpen && <WorldsModal onClose={() => setWorldsOpen(false)} />}
     </div>
   );
 }
