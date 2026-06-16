@@ -1,0 +1,38 @@
+# Normalize line endings. Text files are stored as LF in the repo; Git
+# auto-detects text vs binary. This stops the whole-file CRLF churn that
+# otherwise shows dozens of unrelated files as "modified" on Windows.
+* text=auto eol=lf
+
+# Scripts that must keep platform-native endings to run correctly
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Explicitly binary — never EOL-normalized, never diffed as text
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.icns  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.zip   binary
+*.dmg   binary
+*.gz    binary
+*.7z    binary
+*.gguf  binary
+*.bin   binary
+*.onnx  binary
+*.wav   binary
+*.mp3   binary
+*.ogg   binary
+*.flac  binary
+*.exe   binary
+*.dll   binary
+*.node  binary

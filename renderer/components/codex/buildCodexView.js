@@ -14,6 +14,7 @@
 export const CODEX_TABS = [
   { id: "story", label: "Story" },
   { id: "cast", label: "Cast" },
+  { id: "character", label: "Character" },
   { id: "world", label: "World" },
   { id: "bestiary", label: "Bestiary" }
 ];
@@ -53,13 +54,37 @@ function extraFieldsFor(cx, entryId) {
   );
 }
 
+// App-forged sheets (design doc 01) carry bookkeeping the player never edits;
+// keep it on disk but out of the card. A sensible sheet order so the structured
+// character reads top-to-bottom instead of in hash order.
+const PC_HIDDEN_KEYS = new Set([
+  "name", "schemaVersion", "createdBy", "createdAt", "statsBase", "derivedFormulas"
+]);
+const PC_FIELD_ORDER = [
+  "pronouns", "look", "past", "race", "origin", "rank", "rankLabel", "xp",
+  "stats", "derived", "resources", "skills", "unique_power", "traits",
+  "coin", "inventory", "conditions"
+];
+const PC_FIELD_LABELS = { rankLabel: "tier", unique_power: "power", resources: "pools" };
+
 function pcEntry(world, cx) {
   const ch = world.character ?? {};
-  const fields = [];
-  for (const k of Object.keys(ch)) {
-    if (k === "name") continue; // shown as the card name
-    fields.push(fieldFrom(k, ch[k], provOf(cx, "pc", k)));
+  const isForged = ch.createdBy === "app-forge";
+  // Legacy freeform cards render every key as before; only forged sheets get
+  // the hide-noise + ordered treatment.
+  const keys = Object.keys(ch).filter((k) =>
+    isForged ? !PC_HIDDEN_KEYS.has(k) : k !== "name"
+  );
+  if (isForged) {
+    keys.sort((a, b) => {
+      const ia = PC_FIELD_ORDER.indexOf(a);
+      const ib = PC_FIELD_ORDER.indexOf(b);
+      return (ia < 0 ? PC_FIELD_ORDER.length : ia) - (ib < 0 ? PC_FIELD_ORDER.length : ib);
+    });
   }
+  const fields = keys.map((k) =>
+    fieldFrom(k, ch[k], provOf(cx, "pc", k), PC_FIELD_LABELS[k] ?? k)
+  );
   return {
     id: "pc",
     name: String(ch.name ?? "You"),
@@ -444,6 +469,11 @@ export default function buildCodexView(world) {
     cast,
     world: worldTab,
     bestiary: bestiaryTab,
+    // The CHARACTER tab is a read-only sheet, not record-card groups — keyed off
+    // `characterSheet` (NOT `character`) so the codex search, which iterates
+    // `view[tabId]` as a groups array, treats the tab as empty rather than
+    // choking on a non-iterable object. CodexPanel renders the sheet itself.
+    characterSheet: world?.character ?? {},
     /** Beats not yet rolled into a scene — drives the "End scene" action. */
     unassignedBeats: chronicle.unassignedCount
   };

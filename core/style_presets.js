@@ -8,7 +8,19 @@
  * Single source of truth for resolvePipelineConfig, the Settings → Narrative
  * section, and the InputBar quick control (renderer mirrors labels only).
  * Config location: `narrative.style = { tone, pov, tense, rating, notes }`.
+ *
+ * **Length is the fifth, compositional axis** (design doc 06). Its numeric
+ * scale lives in `length_presets.js` (config: `narrative.lengthPreset`, kept
+ * separate for the existing one-tap preset/slider plumbing), but the narrator's
+ * *length directive* is composed here via {@link buildLengthDirective} so this
+ * module is the single home for "how the player's style choices become narrator
+ * directives." It is injected adjacent to the style lines (see context.js).
  */
+import {
+  LENGTH_PRESETS,
+  LENGTH_PRESET_ORDER,
+  normalizeLengthPreset
+} from "./length_presets.js";
 export const STYLE_PRESETS = {
   tone: {
     neutral: { label: "Neutral", directive: "" },
@@ -96,4 +108,37 @@ export function buildStyleDirectives(style) {
   }
   if (style.notes) lines.push(`Style notes from the player: ${style.notes}`);
   return lines;
+}
+
+/**
+ * Length axis descriptor (design doc 06). Length composes with the style axes
+ * but carries its own numeric scale + the `custom` slider, so it stays in
+ * `length_presets.js`; this descriptor names it as a style axis for the UIs and
+ * any future unified-axis iteration.
+ */
+export const LENGTH_AXIS = {
+  id: "length",
+  label: "Length",
+  /** Config lives at `narrative.lengthPreset`, not inside `narrative.style`. */
+  configKey: "lengthPreset",
+  order: LENGTH_PRESET_ORDER,
+  supportsCustom: true
+};
+
+/**
+ * The narrator length directive for a resolved preset (or the custom slider).
+ * Delegates the numeric scale to `length_presets.js`; this is the one place the
+ * length *directive* is composed, alongside {@link buildStyleDirectives}.
+ *
+ * @param {{ lengthPreset?: string, customMaxLength?: number }} opts
+ * @returns {string} the soft-target directive, or "" when there's nothing to say
+ */
+export function buildLengthDirective({ lengthPreset, customMaxLength } = {}) {
+  const id = normalizeLengthPreset(lengthPreset);
+  if (id !== "custom") return LENGTH_PRESETS[id]?.directive ?? "";
+  // Custom slider: the value the player set is the ceiling; aim a touch under it
+  // so the same "resolve and yield / shorter is fine" nudge applies.
+  const ceiling = Number(customMaxLength);
+  if (!Number.isFinite(ceiling) || ceiling <= 0) return "";
+  return `Length: aim for roughly ${Math.round(ceiling / 1.6)} tokens of narration, and no more than ${Math.round(ceiling)}. Resolve the beat and yield the turn when it's done — don't pad to fill space; shorter is fine when the moment is small.`;
 }

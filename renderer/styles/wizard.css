@@ -301,3 +301,72 @@
   color: var(--gold);
   user-select: all;
 }
+
+/* --- FTUE: pick your first story --- */
+.ftue-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0 4px;
+}
+
+.ftue-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--hair);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ftue-card:hover:not(:disabled) {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: rgba(0, 0, 0, 0.36);
+}
+
+.ftue-card.selected {
+  border-color: var(--gold);
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.ftue-card:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ftue-card-name {
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  color: var(--gold);
+}
+
+.ftue-card-genre {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ftue-card-tagline {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  color: var(--bone);
+}
+
+.ftue-card-summary {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.ftue-actions {
+  justify-content: space-between;
+  margin-top: 18px;
+}

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("api", {
   wizardTestMic: (deviceName) =>
     ipcRenderer.invoke("wizard:testMic", deviceName),
   wizardPickModel: () => ipcRenderer.invoke("wizard:pickModel"),
+  wizardDownloadModel: () => ipcRenderer.invoke("wizard:downloadModel"),
   wizardDownloadWhisper: (modelId) =>
     ipcRenderer.invoke("wizard:downloadWhisper", modelId),
   wizardCancelDownload: () =>
@@ -79,7 +80,19 @@ contextBridge.exposeInMainWorld("api", {
   worldsList: () => ipcRenderer.invoke("worlds:list"),
   worldsTemplates: () => ipcRenderer.invoke("worlds:templates"),
   worldsCreate: (payload) => ipcRenderer.invoke("worlds:create", payload),
+  ftueApplyTemplate: (templateId) =>
+    ipcRenderer.invoke("worlds:applyTemplateToActive", { templateId }),
   worldsSwitch: (id) => ipcRenderer.invoke("worlds:switch", id),
+
+  // Character creation (design doc 01)
+  characterGetSpec: () => ipcRenderer.invoke("character:getSpec"),
+  characterGradeField: (fieldId, text) =>
+    ipcRenderer.invoke("character:gradeField", { fieldId, text }),
+  characterCreate: (answers, graded, recreate) =>
+    ipcRenderer.invoke("character:create", { answers, graded, recreate }),
+  characterGet: () => ipcRenderer.invoke("character:get"),
+  characterPreview: (answers, graded) =>
+    ipcRenderer.invoke("character:preview", { answers, graded }),
   worldsRename: (id, name) => ipcRenderer.invoke("worlds:rename", id, name),
   worldsDelete: (id) => ipcRenderer.invoke("worlds:delete", id),
   onWorldsChanged: (cb) => {
@@ -130,7 +143,9 @@ contextBridge.exposeInMainWorld("api", {
   },
   getAssetPath: (relPath) => ipcRenderer.invoke("ui:getAssetPath", relPath),
   getUiConfig: () => ipcRenderer.invoke("ui:getConfig"),
+  getTtsConfig: () => ipcRenderer.invoke("tts:getConfig"),
   getBackgroundUrl: (p) => ipcRenderer.invoke("ui:getBackgroundUrl", p),
+  getAudioUrl: (p) => ipcRenderer.invoke("ui:getAudioUrl", p),
   imagegenStatus: () => ipcRenderer.invoke("imagegen:status"),
   imagegenGenerateLocation: (name) =>
     ipcRenderer.invoke("imagegen:generateLocation", name),
@@ -195,6 +210,11 @@ contextBridge.exposeInMainWorld("api", {
     const fn = safeListener("narrative:accepted", (_e, p) => cb(p));
     ipcRenderer.on("narrative:accepted", fn);
     return () => ipcRenderer.removeListener("narrative:accepted", fn);
+  },
+  onMechanicsResolved: (cb) => {
+    const fn = safeListener("mechanics:resolved", (_e, p) => cb(p));
+    ipcRenderer.on("mechanics:resolved", fn);
+    return () => ipcRenderer.removeListener("mechanics:resolved", fn);
   },
   onNarrativeUpdated: (cb) => {
     const fn = safeListener("narrative:updated", (_e, p) => cb(p));

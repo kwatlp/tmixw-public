@@ -12,7 +12,8 @@ import {
   toBaseUrl,
   findStopCut,
   estimateTokensFallback,
-  createCachedTokenCounter
+  createCachedTokenCounter,
+  normalizeFinishReason
 } from "../core/inference/index.js";
 import { createOpenAiCompletionsAdapter } from "../core/inference/openai_completions.js";
 import { createOllamaAdapter } from "../core/inference/ollama.js";
@@ -86,6 +87,16 @@ await check("helpers: toBaseUrl + findStopCut + estimate fallback", () => {
   assert.equal(estimateTokensFallback("abcdefgh"), 2);
 });
 
+await check("normalizeFinishReason: length→length, stop/eos→stop, else unknown (doc 03)", () => {
+  assert.equal(normalizeFinishReason("length"), "length");
+  assert.equal(normalizeFinishReason("max_tokens"), "length");
+  assert.equal(normalizeFinishReason("stop"), "stop");
+  assert.equal(normalizeFinishReason("eos"), "stop");
+  assert.equal(normalizeFinishReason("end_turn"), "stop");
+  assert.equal(normalizeFinishReason(null), "unknown");
+  assert.equal(normalizeFinishReason("weird"), "unknown");
+});
+
 // --- OpenAI-completions adapter (llama.cpp server et al.) --------------------
 
 await check("openai: generate maps params (max_tokens, stop≤4, repeat_penalty)", async () => {
@@ -127,6 +138,48 @@ await check("openai: client-side stop cut truncates and aborts", async () => {
   );
   const out = await ad.generateStream("P", GEN, () => {});
   assert.equal(out, "Reply.");
+});
+
+await check("openai: onDone reports finishReason length vs stop (doc 03)", async () => {
+  const mk = (reason) =>
+    createOpenAiCompletionsAdapter({ url: "http://s" }, async () =>
+      streamResponse([
+        'data: {"choices":[{"text":"Hi.","finish_reason":null}]}\n\n',
+        `data: {"choices":[{"text":"","finish_reason":"${reason}"}]}\n\n`,
+        "data: [DONE]\n\n"
+      ])
+    );
+  let len, stop;
+  await mk("length").generateStream("P", GEN, () => {}, (d) => (len = d.finishReason));
+  await mk("stop").generateStream("P", GEN, () => {}, (d) => (stop = d.finishReason));
+  assert.equal(len, "length");
+  assert.equal(stop, "stop");
+});
+
+await check("openai: client-side stop cut reports stopSequence, not truncation (doc 03)", async () => {
+  const ad = createOpenAiCompletionsAdapter({ url: "http://s" }, async () =>
+    streamResponse([
+      'data: {"choices":[{"text":"Reply.","finish_reason":null}]}\n\n',
+      'data: {"choices":[{"text":"\\nUser: echo","finish_reason":null}]}\n\n'
+    ])
+  );
+  let reason;
+  const out = await ad.generateStream("P", GEN, () => {}, (d) => (reason = d.finishReason));
+  assert.equal(out, "Reply.");
+  assert.equal(reason, "stopSequence");
+});
+
+await check("ollama: onDone maps done_reason (doc 03)", async () => {
+  const ad = createOllamaAdapter({ url: "http://o", model: "m" }, async () =>
+    streamResponse([
+      '{"response":"Hi.","done":false}\n',
+      '{"response":"","done":true,"done_reason":"length"}\n'
+    ])
+  );
+  let reason;
+  const out = await ad.generateStream("P", GEN, () => {}, (d) => (reason = d.finishReason));
+  assert.equal(out, "Hi.");
+  assert.equal(reason, "length");
 });
 
 await check("openai: modelInfo from /v1/models; health wraps it", async () => {

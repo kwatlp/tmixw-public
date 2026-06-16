@@ -249,6 +249,7 @@ export async function assembleNarrativeContext({
   embedQuery = getEmbedding,
   countTokens = null,
   extraDirective = "",
+  lateDirective = "",
   template = "plain",
   gmBestiary = null
 }) {
@@ -417,10 +418,27 @@ export async function assembleNarrativeContext({
   if (retrievalBlock) blocks.push(retrievalBlock);
   blocks.push(worldBlock);
 
+  // A late directive (e.g. the RESOLVED MECHANICS block, doc 02) rides on the
+  // most recent USER turn rather than the far-away system block, so it is the
+  // last instruction the model reads before generating — the salient slot in
+  // every prompt template. Not persisted to the session.
+  const renderHistory = history.map((m) => ({ role: m.role, content: m.content }));
+  if (lateDirective) {
+    for (let i = renderHistory.length - 1; i >= 0; i--) {
+      if (renderHistory[i].role === "user") {
+        renderHistory[i] = {
+          ...renderHistory[i],
+          content: `${renderHistory[i].content}\n\n${lateDirective}`
+        };
+        break;
+      }
+    }
+  }
+
   const { prompt, stopSequences } = renderTemplate(template, {
     systemBlock,
     blocks,
-    history: history.map((m) => ({ role: m.role, content: m.content }))
+    history: renderHistory
   });
 
   report.template = template;

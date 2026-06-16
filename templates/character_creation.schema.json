@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tmixw/templates/character_creation.schema.json",
+  "title": "CharacterCreationSpec",
+  "description": "App-owned character creation flow for a story template (design doc 01). Referenced from the manifest under onboarding.characterCreationFile. The core loader (core/character/spec.js + validate.js) is the authoring source of truth; this schema documents the contract. Absent ⇒ the narrator runs the legacy in-fiction forge.",
+  "type": "object",
+  "required": ["schemaVersion", "steps"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "title": { "type": "string", "description": "Header shown above the wizard." },
+    "intro": { "type": "string", "description": "Two-line welcome shown before the first step." },
+
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered creation steps; the wizard renders one per screen.",
+      "items": {
+        "type": "object",
+        "required": ["id", "fields"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/definitions/field" }
+          }
+        }
+      }
+    },
+
+    "derived": {
+      "type": "object",
+      "description": "Deterministic derived values, keyed in evaluation order (a later formula may reference an earlier key). Each value is a formula string over the six stats, prior derived keys, and `armor`; evaluated by core/character/derive.js (no eval).",
+      "additionalProperties": { "type": "string" }
+    },
+
+    "start": {
+      "type": "object",
+      "description": "Constants stamped onto the sheet at creation.",
+      "additionalProperties": true,
+      "properties": {
+        "rank": { "type": "string" },
+        "rankLabel": { "type": "string" },
+        "xp": { "type": "object", "properties": { "current": { "type": "integer" }, "max": { "type": "integer" } } },
+        "coin": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "conditions": { "type": "array" },
+        "resourcePools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Which derived keys become current/max resource pools. Default: vitality, stamina, aether."
+        }
+      }
+    }
+  },
+
+  "definitions": {
+    "field": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["text", "longtext", "single-select", "multi-select", "point-buy", "freeform-graded"]
+        },
+        "required": { "type": "boolean" },
+        "maxLen": { "type": "integer" },
+
+        "options": {
+          "description": "single-select: array of option objects; multi-select: array of strings.",
+          "type": "array"
+        },
+        "count": { "type": "integer", "description": "multi-select: exact number to choose." },
+        "allowCustom": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "label": { "type": "string" },
+            "grade": { "type": "string", "enum": ["llm"] }
+          }
+        },
+
+        "pool": { "type": "integer", "description": "point-buy: total points to spend." },
+        "stats": { "type": "array", "items": { "type": "string" }, "description": "point-buy: stat keys." },
+        "min": { "type": "integer" },
+        "max": { "type": "integer" },
+        "spendAllRequired": { "type": "boolean", "default": true },
+
+        "grade": {
+          "type": "object",
+          "description": "freeform-graded: the LLM grader config (the only model step in creation).",
+          "properties": {
+            "promptFile": { "type": "string" },
+            "outputShape": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -18,6 +18,8 @@ process.env.LOCAL_AI_WRITABLE_CORE = fs.mkdtempSync(
 const { createPipeline, resolvePipelineConfig } = await import(
   "../core/pipeline.js"
 );
+const { LENGTH_PRESETS, deriveCeiling, LENGTH_HEADROOM, LENGTH_CEILING_MAX } =
+  await import("../core/length_presets.js");
 
 let failures = 0;
 async function check(name, fn) {
@@ -513,6 +515,65 @@ await check("streaming: empty stream result retries non-streaming (immediate-EOS
   pl.stop();
 });
 
+// --- message-fin meta (doc 03) ----------------------------------------------
+
+await check("fin meta: finishReason length → truncated true on narrative + pending", async () => {
+  const { pl, events } = makePipeline({
+    fileCfg: { narrative: { acceptGraceMs: 60_000, stream: true } }
+  });
+  pl._generateStream = async (prompt, gen, cfg, onText, onDone) => {
+    onText("A short reply.");
+    onDone({ finishReason: "length" });
+    return "A short reply.";
+  };
+  await runTurn(pl, "Tell me a long story.");
+
+  const narr = events.find((e) => e.ev === "narrative");
+  const pending = events.find((e) => e.ev === "narrative:pending");
+  assert.equal(narr.meta.finishReason, "length");
+  assert.equal(narr.meta.truncated, true, "length reason ⇒ truncated");
+  assert.equal(pending.meta.truncated, true, "meta rides the pending event too");
+  assert.equal(pl._pending.meta.finishReason, "length", "parked on the pending object");
+  pl._pending.timer && clearTimeout(pl._pending.timer);
+  pl._pending = null;
+  pl.stop();
+});
+
+await check("fin meta: finishReason stop → complete (not truncated)", async () => {
+  const { pl, events } = makePipeline({
+    fileCfg: { narrative: { acceptGraceMs: 60_000, stream: true } }
+  });
+  pl._generateStream = async (prompt, gen, cfg, onText, onDone) => {
+    onText("A complete thought.");
+    onDone({ finishReason: "stop" });
+    return "A complete thought.";
+  };
+  await runTurn(pl, "Hi.");
+  const narr = events.find((e) => e.ev === "narrative");
+  assert.equal(narr.meta.finishReason, "stop");
+  assert.equal(narr.meta.truncated, false);
+  pl._pending.timer && clearTimeout(pl._pending.timer);
+  pl._pending = null;
+  pl.stop();
+});
+
+await check("fin meta: no reason + reply pegs the budget → truncated via heuristic", async () => {
+  // brief preset ceiling = target 120 × 1.6 headroom = 192 tokens (doc 06);
+  // ~800 chars ≈ 200 tokens (chars/4) clears 0.98×192 ≈ 188.
+  const { pl, events } = makePipeline({
+    fileCfg: { narrative: { acceptGraceMs: 60_000, stream: false, lengthPreset: "brief" } },
+    narrativeReplies: ["x".repeat(800)]
+  });
+  await runTurn(pl, "Ramble.");
+  const narr = events.find((e) => e.ev === "narrative");
+  assert.equal(narr.meta.finishReason, "unknown", "non-stream has no adapter reason");
+  assert.equal(narr.meta.truncated, true, "token-budget heuristic fires");
+  assert.equal(narr.meta.lengthPreset, "brief");
+  pl._pending.timer && clearTimeout(pl._pending.timer);
+  pl._pending = null;
+  pl.stop();
+});
+
 await check("stopGeneration: no-op when nothing is streaming", async () => {
   const { pl } = makePipeline();
   assert.deepEqual(pl.stopGeneration(), { ok: false });
@@ -614,6 +675,51 @@ await check("first-turn directive: in the first narrator prompt, gone once a rep
     "directive is one-shot — never after the first committed reply"
   );
   pl.stop();
+});
+
+// --- design doc 06: length as a soft target (target vs derived ceiling) ---
+
+const resolveLen = (narrative) =>
+  resolvePipelineConfig({ narrative }, "NARRATIVE SYSTEM", "EXTRACTOR SYSTEM", "");
+
+await check("doc06: preset max_length is a derived ceiling = target × headroom", async () => {
+  for (const [id, p] of Object.entries(LENGTH_PRESETS)) {
+    const cfg = resolveLen({ lengthPreset: id });
+    const expected = Math.round(p.target * LENGTH_HEADROOM);
+    assert.equal(cfg.narrative.max_length, expected, `${id} ceiling`);
+    assert.equal(cfg.narrativeLengthCeiling, expected, `${id} surfaced ceiling`);
+    assert.equal(cfg.narrativeLengthTarget, p.target, `${id} surfaced target`);
+    assert.ok(
+      cfg.narrative.max_length > p.target,
+      `${id}: ceiling must exceed the target (headroom > 1), so the cap is a backstop`
+    );
+  }
+});
+
+await check("doc06: every preset directive says resolve/yield + shorter-is-fine, never antiEos", async () => {
+  for (const id of Object.keys(LENGTH_PRESETS)) {
+    const cfg = resolveLen({ lengthPreset: id });
+    const d = cfg.narrativeLengthDirective;
+    assert.match(d, /resolve the beat and yield/i, `${id} resolve/yield clause`);
+    assert.match(d, /shorter is fine/i, `${id} shorter-is-fine clause`);
+    assert.ok(!("antiEos" in cfg.narrative), `${id} must not set antiEos`);
+  }
+});
+
+await check("doc06: custom preserves the slider value as the literal ceiling + nudges", async () => {
+  const cfg = resolveLen({ lengthPreset: "custom", max_length: 333 });
+  assert.equal(cfg.narrative.max_length, 333, "custom keeps the slider ceiling");
+  assert.equal(cfg.narrativeLengthTarget, null, "custom has no fixed target");
+  assert.equal(cfg.narrativeLengthCeiling, 333);
+  assert.match(cfg.narrativeLengthDirective, /resolve the beat and yield/i, "custom still nudges");
+});
+
+await check("doc06: unknown preset falls back to standard; deriveCeiling clamps", async () => {
+  const cfg = resolveLen({ lengthPreset: "wat" });
+  assert.equal(cfg.narrativeLengthPreset, "standard");
+  assert.equal(cfg.narrative.max_length, Math.round(LENGTH_PRESETS.standard.target * LENGTH_HEADROOM));
+  assert.equal(deriveCeiling(0), LENGTH_CEILING_MAX, "non-positive target → max clamp, never zero");
+  assert.equal(deriveCeiling(NaN), LENGTH_CEILING_MAX, "non-finite target → max clamp");
 });
 
 console.log(failures > 0 ? `\n${failures} failure(s)` : "\nAll acceptance tests passed");

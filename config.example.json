@@ -7,7 +7,13 @@
     "backgroundImage": "art/backgroundimage.jpg",
     "borderMode": "svg",
     "borderImage": null,
-    "locationBackgrounds": {}
+    "locationBackgrounds": {},
+    "backgroundMusic": "music/Mr Smith - Shanty - default.mp3",
+    "music": {
+      "enabled": false,
+      "volume": 0.4,
+      "loop": true
+    }
   },
 
   "inference": {
@@ -94,6 +100,15 @@
     "steps": 28,
     "width": 1280,
     "height": 720
+  },
+
+  "tts": {
+    "enabled": false,
+    "backend": "web-speech",
+    "autoSpeak": true,
+    "voice": "",
+    "rate": 1.0,
+    "volume": 0.9
   },
 
   "agent": {

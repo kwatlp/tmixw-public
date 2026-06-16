@@ -16,7 +16,8 @@ import {
   postJsonWithRetry,
   sseDataEvents,
   findStopCut,
-  estimateTokensFallback
+  estimateTokensFallback,
+  normalizeFinishReason
 } from "./index.js";
 
 function buildBody(prompt, g, stream) {
@@ -52,7 +53,8 @@ export function createOpenAiCompletionsAdapter(cfg, fetchImpl = fetch) {
     return String(json?.choices?.[0]?.text ?? "").trim();
   }
 
-  async function generateStream(prompt, gen, onText) {
+  async function generateStream(prompt, gen, onText, onDone) {
+    const done = typeof onDone === "function" ? onDone : () => {};
     activeAbort = new AbortController();
     try {
       const res = await fetchImpl(`${base}/v1/completions`, {
@@ -81,18 +83,23 @@ export function createOpenAiCompletionsAdapter(cfg, fetchImpl = fetch) {
             const cutAt = findStopCut(text, stops);
             if (cutAt >= 0) {
               text = text.slice(0, cutAt);
+              done({ finishReason: "stopSequence" });
               // These servers cancel generation when the client disconnects.
               activeAbort.abort();
               break;
             }
             onText(text);
           }
-          if (evt?.choices?.[0]?.finish_reason != null) break;
+          if (evt?.choices?.[0]?.finish_reason != null) {
+            done({ finishReason: normalizeFinishReason(evt.choices[0].finish_reason) });
+            break;
+          }
         }
       } catch (e) {
         // Disconnect-after-abort surfaces as a fetch error mid-iteration;
         // the accumulated partial is the result (matches Stop semantics).
         if (!activeAbort.signal.aborted) throw e;
+        done({ finishReason: "aborted" });
       }
       return text.trim();
     } finally {

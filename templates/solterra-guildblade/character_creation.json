@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "title": "The Character Forge",
+  "intro": "Before the tin plate touches your palm, Skyra needs to know who you are. Make each choice — nothing is rolled for you.",
+
+  "steps": [
+    {
+      "id": "identity",
+      "title": "Identity",
+      "fields": [
+        { "id": "name", "type": "text", "label": "Name", "required": true, "maxLen": 60 },
+        { "id": "pronouns", "type": "text", "label": "Pronouns", "required": false, "maxLen": 40 },
+        { "id": "look", "type": "longtext", "label": "Look", "required": false, "maxLen": 400 },
+        { "id": "past", "type": "longtext", "label": "A sentence of past", "required": false, "maxLen": 280 }
+      ]
+    },
+    {
+      "id": "race",
+      "title": "Bloodline",
+      "fields": [
+        {
+          "id": "race",
+          "type": "single-select",
+          "label": "Bloodline",
+          "required": true,
+          "options": [
+            {
+              "id": "human",
+              "label": "Human",
+              "summary": "+2 to one stat, +1 to another · reroll any d20 once per quest.",
+              "effects": {
+                "statChoice": { "count": 1, "amount": 2 },
+                "statChoiceSecondary": { "count": 1, "amount": 1 },
+                "grants": ["Tenacity: reroll any d20 once per quest"]
+              }
+            },
+            {
+              "id": "beastkin",
+              "label": "Beastkin",
+              "summary": "+1 AGI or STR, plus a subtype knack.",
+              "effects": { "statChoice": { "count": 1, "amount": 1, "from": ["AGI", "STR"] } },
+              "subtypes": [
+                { "id": "feline", "label": "Feline-kin", "grants": ["night sight", "silent step"] },
+                { "id": "canine", "label": "Canine-kin", "grants": ["keen scent", "pack loyalty"] },
+                { "id": "ursine", "label": "Ursine-kin", "grants": ["thick hide", "crushing grip"] }
+              ]
+            },
+            {
+              "id": "wood-elf",
+              "label": "Wood Elf",
+              "summary": "+1 AGI, +1 WIL · at home in the Deep Wood.",
+              "effects": { "stat": { "AGI": 1, "WIL": 1 }, "grants": ["woodwise: never lost under canopy"] }
+            },
+            {
+              "id": "high-elf",
+              "label": "High Elf",
+              "summary": "+2 INT · aether comes easily.",
+              "effects": { "stat": { "INT": 2 }, "grants": ["arcane affinity: +1d6 on aether gambits once per scene"] }
+            },
+            {
+              "id": "dwarf",
+              "label": "Dwarf",
+              "summary": "+2 CON · stubborn against fear and poison.",
+              "effects": { "stat": { "CON": 2 }, "grants": ["stonebound: advantage vs. fear and poison"] }
+            },
+            {
+              "id": "lizardfolk",
+              "label": "Lizardfolk",
+              "summary": "+1 CON, +1 STR · natural scales.",
+              "effects": { "stat": { "CON": 1, "STR": 1 }, "grants": ["scaled: +1 Guard unarmored"] }
+            }
+          ],
+          "allowCustom": { "enabled": true, "label": "Custom bloodline", "grade": "llm" }
+        }
+      ]
+    },
+    {
+      "id": "origin",
+      "title": "Origin",
+      "fields": [
+        {
+          "id": "origin",
+          "type": "single-select",
+          "label": "Origin",
+          "required": true,
+          "options": [
+            {
+              "id": "coalition-soldier",
+              "label": "Coalition Soldier",
+              "summary": "+2 CON · Swordsmanship or Shieldwork · arming sword, mail, 20 SS.",
+              "effects": {
+                "stat": { "CON": 2 },
+                "skillChoice": { "count": 1, "from": ["Swordsmanship", "Shieldwork"] },
+                "grantItems": [
+                  { "name": "Arming sword", "slot": "weapon", "damage": "d8" },
+                  { "name": "Mail shirt", "slot": "armor", "armor": 2 }
+                ],
+                "coin": { "ss": 20 }
+              }
+            },
+            {
+              "id": "frontier-scout",
+              "label": "Frontier Scout",
+              "summary": "+2 AGI · Tracking or Archery · shortbow, leathers, 15 SS.",
+              "effects": {
+                "stat": { "AGI": 2 },
+                "skillChoice": { "count": 1, "from": ["Tracking", "Archery"] },
+                "grantItems": [
+                  { "name": "Shortbow", "slot": "weapon", "damage": "d6" },
+                  { "name": "Leather jerkin", "slot": "armor", "armor": 1 }
+                ],
+                "coin": { "ss": 15 }
+              }
+            },
+            {
+              "id": "dockhand",
+              "label": "Kalthas Dockhand",
+              "summary": "+1 STR, +1 CON · Brawling · a stout cudgel and 25 SS.",
+              "effects": {
+                "stat": { "STR": 1, "CON": 1 },
+                "skillChoice": { "count": 1, "from": ["Brawling", "Athletics"] },
+                "grantItems": [{ "name": "Stout cudgel", "slot": "weapon", "damage": "d6" }],
+                "coin": { "ss": 25 }
+              }
+            },
+            {
+              "id": "hedge-witch",
+              "label": "Hedge-witch",
+              "summary": "+2 WIL · Fire Magic or Healing · a focus and 10 SS.",
+              "effects": {
+                "stat": { "WIL": 2 },
+                "skillChoice": { "count": 1, "from": ["Fire Magic", "Healing"] },
+                "grantItems": [{ "name": "Carved focus", "slot": "focus" }],
+                "coin": { "ss": 10 }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stats",
+      "title": "Stats",
+      "fields": [
+        {
+          "id": "stats",
+          "type": "point-buy",
+          "label": "Allocate 50 points (3–12 each)",
+          "pool": 50,
+          "stats": ["STR", "AGI", "CON", "INT", "CHA", "WIL"],
+          "min": 3,
+          "max": 12,
+          "spendAllRequired": true
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "title": "Skills",
+      "fields": [
+        {
+          "id": "skills",
+          "type": "multi-select",
+          "label": "Choose 3 skills (Rank E)",
+          "count": 3,
+          "allowCustom": { "enabled": true, "grade": "llm" },
+          "options": [
+            "Swordsmanship",
+            "Shieldwork",
+            "Archery",
+            "Brawling",
+            "Athletics",
+            "Stealth",
+            "Tracking",
+            "Fire Magic",
+            "Healing",
+            "Lore",
+            "Persuasion",
+            "Sleight of Hand"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "title": "Unique Power",
+      "fields": [
+        {
+          "id": "unique_power",
+          "type": "freeform-graded",
+          "label": "Describe your Unique Power — any concept.",
+          "required": true,
+          "maxLen": 500,
+          "grade": { "promptFile": "power_grading.txt", "outputShape": "unique_power" }
+        }
+      ]
+    }
+  ],
+
+  "derived": {
+    "vitality": "50 + 5*CON",
+    "stamina": "40 + 4*CON",
+    "aether": "30 + 3*(INT + WIL)",
+    "guard": "10 + floor(AGI/2) + min(armor, 3)"
+  },
+
+  "start": {
+    "rank": "E",
+    "rankLabel": "Tin",
+    "xp": { "current": 0, "max": 100 },
+    "conditions": [],
+    "resourcePools": ["vitality", "stamina", "aether"]
+  }
+}

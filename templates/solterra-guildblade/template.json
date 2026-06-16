@@ -21,6 +21,7 @@
 
   "gm": {
     "bestiaryFile": "bestiary.gm.json",
+    "rulesFile": "rules.json",
     "notes": "GM-ONLY. Full monster stat blocks + scaling/variant tables. The loader should make this available to the NARRATOR as reference context (retrieval or pinned), but it must NEVER be written into player-facing world_state or shown in the UI. The player's own discovered-creature notes are a separate, initially-empty section: seed.bestiary below. See templates/README.md → 'The bestiary gap'."
   },
 
@@ -124,8 +125,10 @@
   },
 
   "onboarding": {
-    "runAtStart": "character-forge",
-    "firstMessageHint": "Follow system_prompt.md §12 · Session Start: Skyra's two-line welcome, then the full Character Forge (§2) in ONE message. On the player's answers, confirm the sheet, render STATUS, and open at the Kalthas chapterhouse with the tin plate and a board of 3 quests — same message.",
+    "characterCreationFile": "character_creation.json",
+    "mode": "app-forge",
+    "openingHint": "The player has just finished the Character Forge in the app. Give Skyra's welcome — two lines, no more — and confirm their character in-fiction. Render a STATUS block from the exact numbers on the sheet. Then press the tin (Rank E) plate into their palm at the Adventurers' Charter chapterhouse in the port city of Kalthas, and chalk the board with exactly three rank-appropriate quests (mix of CULL / HUNT / DELVE / ESCORT / RECOVER / STRANGE). Invite them to pick one or explore the chapterhouse. Do NOT re-run any part of character creation.",
+    "firstMessageHint": "This is the unprompted OPENING message (§12 step 1). Do exactly two things, then STOP and wait for the player. (1) Skyra's welcome — two lines, no more. (2) Present the full Character Forge from §2 as CHOICES THE PLAYER MUST MAKE: ask for Identity (name, pronouns, look, one line of past); list the Race options; list the Origin options; ask them to allocate 50 stat points across the six stats (min 3, max 12); list the skills and have them choose 3; ask them to describe a Unique Power concept. HARD RULES for this message: do NOT invent, assume, or pre-fill the player's character — no chosen name, race, origin, or stats; do NOT roll or pre-allocate stats; do NOT render a completed character sheet or a STATUS block; do NOT use placeholder brackets like [Name]/[Race] as if the sheet were done. Do NOT mention the Kalthas chapterhouse, hand over the tin plate, or post the quest board — those belong ONLY to the NEXT message, after the player has answered (§12 step 2). End by inviting the player to reply with their choices.",
     "boardSize": 3,
     "startingRank": "E"
   }

@@ -5,7 +5,8 @@ import {
   globalShortcut,
   protocol,
   dialog,
-  systemPreferences
+  systemPreferences,
+  Menu
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -489,7 +490,41 @@ function mimeForExt(filePath) {
   if (ext === ".js") return "text/javascript";
   if (ext === ".css") return "text/css";
   if (ext === ".json") return "application/json";
+  // Background music (doc 04): the codecs Chromium plays.
+  if (ext === ".mp3") return "audio/mpeg";
+  if (ext === ".ogg" || ext === ".oga") return "audio/ogg";
+  if (ext === ".wav") return "audio/wav";
+  if (ext === ".flac") return "audio/flac";
+  if (ext === ".m4a" || ext === ".aac") return "audio/mp4";
   return "application/octet-stream";
+}
+
+/**
+ * Resolve an in-app-root relative path to a renderer-loadable URL — `file://`
+ * in dev, the privileged `app://` scheme when packaged — without reading the
+ * file into memory. Returns { url, abs, missing }. The app-root containment
+ * check + the dev/packaged URL rule live here so ui:getAssetPath and
+ * ui:getAudioUrl share one implementation (and one place to harden).
+ * @param {string} relPath
+ */
+function resolveRootAssetUrl(relPath) {
+  const root = path.normalize(appRoot());
+  const rel = safeRelToRoot(relPath);
+  const abs = path.normalize(path.join(root, rel));
+  if (!rel || !isPathInsideAppRoot(abs, root) || !fs.existsSync(abs)) {
+    return { url: "", abs, missing: true };
+  }
+  const url = isDevRuntime()
+    ? pathToFileURL(abs).href
+    : `app:///${encodeURI(rel.split(path.sep).join("/"))}`;
+  return { url, abs, missing: false };
+}
+
+/** Read any on-disk file into a base64 data URL — for paths app:// can't serve
+ *  (user-picked files outside the app root, under webSecurity). */
+async function fileToDataUrl(abs) {
+  const data = await fs.promises.readFile(abs);
+  return `data:${mimeForExt(abs)};base64,${data.toString("base64")}`;
 }
 
 function wirePipelineToWindow() {
@@ -506,6 +541,7 @@ function wirePipelineToWindow() {
   pipeline.on("narrative:token", (p) => fwd("narrative:token", p));
   pipeline.on("narrative:pending", (p) => fwd("narrative:pending", p));
   pipeline.on("narrative:accepted", (p) => fwd("narrative:accepted", p));
+  pipeline.on("mechanics:resolved", (p) => fwd("mechanics:resolved", p));
   pipeline.on("narrative:updated", (p) => fwd("narrative:updated", p));
   pipeline.on("extractor:ok", (p) => fwd("extractor:ok", p));
   pipeline.on("extractor:skip", (p) => fwd("extractor:skip", p));
@@ -578,6 +614,7 @@ function createMainWindow(resolved, _fileCfg) {
     width: 1280,
     height: 800,
     frame: true,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -599,6 +636,42 @@ function createMainWindow(resolved, _fileCfg) {
     );
     mainWindow.loadFile(indexHtml);
   }
+
+  // Clipboard accelerators + right-click edit menu (player feedback e9/e8).
+  // A custom-framed window with no application menu drops the default Edit
+  // accelerators on Windows, so Ctrl+V did nothing in inputs. An explicit menu
+  // (bar hidden via autoHideMenuBar; Alt reveals) restores Cut/Copy/Paste/
+  // Select-All, and the context menu adds right-click copy/paste — including
+  // copy of selected narration text.
+  const isMac = process.platform === "darwin";
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac ? [{ role: "appMenu" }] : []),
+      { role: "editMenu" },
+      { role: "viewMenu" },
+      { role: "windowMenu" }
+    ])
+  );
+  mainWindow.setMenuBarVisibility(false);
+
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    const { editFlags, isEditable, selectionText } = params;
+    const items = [];
+    if (isEditable) {
+      items.push(
+        { role: "cut", enabled: editFlags.canCut },
+        { role: "copy", enabled: editFlags.canCopy },
+        { role: "paste", enabled: editFlags.canPaste },
+        { type: "separator" },
+        { role: "selectAll" }
+      );
+    } else if (selectionText && selectionText.trim()) {
+      items.push({ role: "copy" });
+    }
+    if (items.length) {
+      Menu.buildFromTemplate(items).popup({ window: mainWindow });
+    }
+  });
 
   mainWindow.webContents.on("before-input-event", (event, input) => {
     if (resolved.stdinPtt !== false) return;
@@ -848,6 +921,15 @@ function registerIpcHandlers(ws, codex, lifecycle) {
     base: { file: "ggml-base.bin", size: 148_000_000, label: "Base (~142 MB)" }
   };
 
+  // Curated default LLM: a Q4_K_M 7B that runs on mid-range GPUs, with a stable
+  // direct-resolve URL. Mirrors the first entry in RECOMMENDED_MODELS (Wizard.jsx).
+  const DEFAULT_GGUF_MODEL = {
+    file: "mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+    size: 4_368_000_000,
+    label: "Mistral 7B Instruct v0.2 — Q4_K_M (~4.4 GB)",
+    url: "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+  };
+
   ipcMain.handle("wizard:downloadWhisper", async (_e, modelId) => {
     const model = WHISPER_MODELS[modelId];
     if (!model) throw new Error(`Unknown model: ${modelId}`);
@@ -913,6 +995,79 @@ function registerIpcHandlers(ws, codex, lifecycle) {
         percent: 100
       });
       return { ok: true, path: destPath };
+    } catch (err) {
+      if (err.name === "AbortError") {
+        return { ok: false, cancelled: true };
+      }
+      throw err;
+    } finally {
+      activeDownloadAbort = null;
+    }
+  });
+
+  ipcMain.handle("wizard:downloadModel", async () => {
+    const model = DEFAULT_GGUF_MODEL;
+
+    const modelsDir = userDataModelsDir();
+    await fs.promises.mkdir(modelsDir, { recursive: true });
+    const destPath = path.join(modelsDir, model.file);
+
+    if (fs.existsSync(destPath)) {
+      const stat = await fs.promises.stat(destPath);
+      if (stat.size > 1000) {
+        return { ok: true, path: destPath, sizeBytes: stat.size, alreadyExists: true };
+      }
+    }
+
+    const abort = new AbortController();
+    activeDownloadAbort = abort;
+
+    try {
+      const res = await fetch(model.url, {
+        signal: abort.signal,
+        redirect: "follow"
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+      const totalBytes = Number(res.headers.get("content-length") || model.size);
+      let received = 0;
+      const tmpPath = destPath + ".tmp";
+      const writer = fs.createWriteStream(tmpPath);
+      let lastProgressAt = 0;
+
+      for await (const chunk of res.body) {
+        if (abort.signal.aborted) break;
+        writer.write(chunk);
+        received += chunk.length;
+        const now = Date.now();
+        if (now - lastProgressAt > 250) {
+          lastProgressAt = now;
+          sendToRenderer("wizard:downloadProgress", {
+            received,
+            total: totalBytes,
+            percent: Math.round((received / totalBytes) * 100)
+          });
+        }
+      }
+
+      writer.end();
+      await new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      if (abort.signal.aborted) {
+        await fs.promises.unlink(tmpPath).catch(() => {});
+        return { ok: false, cancelled: true };
+      }
+
+      await fs.promises.rename(tmpPath, destPath);
+      sendToRenderer("wizard:downloadProgress", {
+        received: totalBytes,
+        total: totalBytes,
+        percent: 100
+      });
+      return { ok: true, path: destPath, sizeBytes: totalBytes };
     } catch (err) {
       if (err.name === "AbortError") {
         return { ok: false, cancelled: true };
@@ -1271,6 +1426,96 @@ function registerIpcHandlers(ws, codex, lifecycle) {
 
   ipcMain.handle("world:get", () => loadWorldState());
 
+  // --- Character creation (design doc 01) ----------------------------------
+  // App-owned, template-driven character forge. The deterministic core lives
+  // in core/character/; these handlers expose it and write the structured
+  // sheet to world_state.character. Grading is the only model touchpoint.
+
+  /** The active world's template (with its attached creationSpec), or null. */
+  const activeTemplate = () => {
+    const activeId = worldsSnapshot().activeWorldId;
+    if (!activeId) return null;
+    const meta = worlds.loadWorldMeta(activeId);
+    if (!meta?.templateId) return null;
+    return storyTemplates.discoverTemplates().find((t) => t.id === meta.templateId) ?? null;
+  };
+
+  const findSpecField = (spec, fieldId) => {
+    for (const step of spec?.steps ?? []) {
+      for (const f of step?.fields ?? []) if (f.id === fieldId) return f;
+    }
+    return null;
+  };
+
+  ipcMain.handle("character:getSpec", () => ({
+    spec: activeTemplate()?.creationSpec ?? null
+  }));
+
+  ipcMain.handle("character:gradeField", async (_e, payload) => {
+    try {
+      const spec = activeTemplate()?.creationSpec;
+      if (!spec) return { ok: false, error: "This world has no character creation spec." };
+      const field = findSpecField(spec, String(payload?.fieldId ?? ""));
+      if (!field) return { ok: false, error: `Unknown field: ${payload?.fieldId}` };
+      const { gradeFreeform } = await import("../core/character/grade.js");
+      const { buildInferenceRuntimeConfig } = await import("../core/inference/index.js");
+      const graded = await gradeFreeform(field, String(payload?.text ?? ""), {
+        inferenceConfig: buildInferenceRuntimeConfig(liveFileCfg)
+      });
+      return { ok: true, graded };
+    } catch (e) {
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle("character:create", async (_e, payload) => {
+    try {
+      const spec = activeTemplate()?.creationSpec;
+      if (!spec) return { ok: false, error: "This world has no character creation spec." };
+      const answers = payload?.answers ?? {};
+      const { validateAnswers } = await import("../core/character/validate.js");
+      const { buildCharacter } = await import("../core/character/build.js");
+      const v = validateAnswers(spec, answers);
+      if (!v.ok) return { ok: false, errors: v.errors };
+      // One character per world (design §11): never clobber an app-forged sheet
+      // unless the caller explicitly asks to recreate.
+      const live = pipeline ? pipeline.worldState : loadWorldState();
+      if (payload?.recreate !== true && live.character?.createdBy === "app-forge") {
+        return { ok: false, error: "A character already exists for this world." };
+      }
+      const character = buildCharacter(spec, answers, payload?.graded ?? {});
+      mutateWorld((state) => {
+        state.character = character;
+      });
+      // App-forge handoff (design doc 01 §10): the opening was deferred until
+      // this sheet existed — trigger it now that it does.
+      pipeline?.kickoffOpening();
+      return { ok: true, character };
+    } catch (e) {
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  ipcMain.handle("character:get", () => {
+    const live = pipeline ? pipeline.worldState : loadWorldState();
+    return { character: live.character ?? {} };
+  });
+
+  // Live derived/stat preview for the forge UI (the renderer cannot import core
+  // ESM). Lenient: builds from partial answers so steppers update as points
+  // move; never throws on an incomplete sheet.
+  ipcMain.handle("character:preview", async (_e, payload) => {
+    try {
+      const spec = activeTemplate()?.creationSpec;
+      if (!spec) return { ok: false };
+      const { buildCharacter } = await import("../core/character/build.js");
+      const c = buildCharacter(spec, payload?.answers ?? {}, payload?.graded ?? {});
+      return { ok: true, stats: c.stats, statsBase: c.statsBase, derived: c.derived, resources: c.resources };
+    } catch {
+      return { ok: false };
+    }
+  });
+
   // --- Worlds (v0.9.0 M2) --------------------------------------------------
   // Multi-world picker. Switch order is contractual (plan D2): stop the
   // pipeline, repoint the path seam, then boot fresh from the new world's
@@ -1340,6 +1585,42 @@ function registerIpcHandlers(ws, codex, lifecycle) {
           // best-effort cleanup
         }
       }
+      return { ok: false, error: e?.message ?? String(e) };
+    }
+  });
+
+  // FTUE (post-wizard): apply a template in place to the pristine first-run
+  // world instead of spawning a second one. applyTemplate() overwrites
+  // world_state.json, so this is gated to a never-templated world — a real
+  // save must go through worlds:create. Same seed/narrator/onboarding path as
+  // worlds:create, then a switch-to-self reboots the pipeline on the seeded
+  // state.
+  ipcMain.handle("worlds:applyTemplateToActive", async (_e, payload) => {
+    const templateId = String(payload?.templateId ?? "").trim();
+    if (!templateId) return { ok: false, error: "No template id provided." };
+    try {
+      const reg = worldsSnapshot();
+      const activeId = reg.activeWorldId;
+      if (!activeId) throw new Error("No active world to apply a template to.");
+      const meta = worlds.loadWorldMeta(activeId);
+      if (!meta) throw new Error(`Active world not found: ${activeId}`);
+      if (meta.templateId) {
+        throw new Error(
+          "This world already uses a template — create a New World instead."
+        );
+      }
+      const template = storyTemplates
+        .discoverTemplates()
+        .find((t) => t.id === templateId);
+      if (!template) throw new Error(`Unknown story template: ${templateId}`);
+      const patch = storyTemplates.applyTemplate(
+        worlds.getWorldDir(activeId),
+        template
+      );
+      worlds.saveWorldMeta({ ...meta, ...patch, name: template.name, templateId });
+      await switchToWorld(activeId);
+      return { ok: true, ...worldsSnapshot() };
+    } catch (e) {
       return { ok: false, error: e?.message ?? String(e) };
     }
   });
@@ -1546,6 +1827,10 @@ function registerIpcHandlers(ws, codex, lifecycle) {
 
   ipcMain.handle("ui:getConfig", () => liveFileCfg.ui ?? {});
 
+  // Text-to-speech (doc 05): the renderer reads this to drive auto-speak +
+  // barge-in. Mirrors ui:getConfig; saves flow through settings:save.
+  ipcMain.handle("tts:getConfig", () => liveFileCfg.tts ?? {});
+
   // --- Image generation (v0.7.0 D6 — optional, manual, isolated) ----------
   ipcMain.handle("imagegen:status", async () => {
     const { buildImagegenRuntimeConfig, imagegenEnabled } = await import("../core/imagegen.js");
@@ -1605,39 +1890,38 @@ function registerIpcHandlers(ws, codex, lifecycle) {
       ? path.normalize(raw)
       : path.normalize(path.join(appRoot(), safeRelToRoot(raw)));
     try {
-      const data = await fs.promises.readFile(abs);
-      return {
-        url: `data:${mimeForExt(abs)};base64,${data.toString("base64")}`,
-        missing: false
-      };
+      return { url: await fileToDataUrl(abs), missing: false };
+    } catch {
+      return { url: "", missing: true };
+    }
+  });
+
+  // Background music (doc 04): resolve a track to a renderer-loadable URL. A
+  // bundled, in-root relative path is served via app:// (packaged) / file://
+  // (dev) — the file's own bytes, not a base64 data URL, so the renderer avoids
+  // the ~33% string bloat (not byte-range streaming; fine for a looping track).
+  // A user-picked absolute file (outside app root, which app:// can't serve
+  // under webSecurity) falls back to a data URL, like the image layer.
+  ipcMain.handle("ui:getAudioUrl", async (_e, p) => {
+    const raw = String(p ?? "").trim();
+    if (!raw) return { url: "", missing: true };
+    if (!path.isAbsolute(raw)) {
+      const r = resolveRootAssetUrl(raw);
+      return { url: r.url, missing: r.missing };
+    }
+    try {
+      return { url: await fileToDataUrl(path.normalize(raw)), missing: false };
     } catch {
       return { url: "", missing: true };
     }
   });
 
   ipcMain.handle("ui:getAssetPath", (_e, relPath) => {
-    const rel = safeRelToRoot(relPath);
-    const abs = path.normalize(path.join(appRoot(), rel));
-    const root = path.normalize(appRoot());
-    if (!isPathInsideAppRoot(abs, root)) {
-      return { url: "", path: abs, missing: true };
+    const r = resolveRootAssetUrl(relPath);
+    if (r.missing && app.isPackaged) {
+      console.error("[ui:getAssetPath] missing file", { abs: r.abs, appPath: appRoot() });
     }
-    const missing = !fs.existsSync(abs);
-    if (missing) {
-      if (app.isPackaged) {
-        console.error("[ui:getAssetPath] missing file", { rel, abs, appPath: root });
-      }
-      return { url: "", path: abs, missing: true };
-    }
-    if (isDevRuntime()) {
-      return { url: pathToFileURL(abs).href, path: abs, missing: false };
-    }
-    const relUrl = rel.split(path.sep).join("/");
-    return {
-      url: `app:///${encodeURI(relUrl)}`,
-      path: abs,
-      missing: false
-    };
+    return { url: r.url, path: r.abs, missing: r.missing };
   });
 
   ipcMain.handle("renderer:ready", () => {
@@ -2019,11 +2303,49 @@ async function main() {
         ? `${baseSystem}\n\n${wn.systemPrompt}`
         : wn.systemPrompt
       : baseSystem;
+    // Onboarding handoff (design doc 01 §10): an "app-forge" world defers its
+    // opening until the in-app forge writes a structured sheet, then confirms
+    // it — so the directive carries the post-creation opening hint, not the
+    // legacy forge prose. Anything else keeps the firstMessageHint forge.
+    const onboarding = worldMeta?.onboarding ?? {};
+    // Resolve the live template (for its creationSpec + manifest onboarding) so
+    // worlds applied BEFORE the mode/openingHint fields existed still upgrade to
+    // the app forge — the presence of a creation spec is the signal.
+    const activeTpl = worldMeta?.templateId
+      ? storyTemplates.discoverTemplates().find((t) => t.id === worldMeta.templateId)
+      : null;
+    const tplOnboarding = activeTpl?.manifest?.onboarding ?? {};
+    const onboardingMode =
+      onboarding.mode === "app-forge"
+        ? "app-forge"
+        : onboarding.mode === "narrator-forge"
+          ? "narrator-forge"
+          : activeTpl?.creationSpec
+            ? "app-forge" // auto-upgrade: this template now ships an app forge
+            : "narrator-forge";
+    const firstTurnDirective =
+      onboardingMode === "app-forge"
+        ? String(onboarding.openingHint || tplOnboarding.openingHint || "")
+        : String(onboarding.firstMessageHint ?? "");
+    // Interaction-engine rules (design doc 02): resolved live from the active
+    // template, so existing worlds pick them up without a re-apply. Absent ⇒
+    // the pipeline falls back to the engine defaults.
+    let rules = null;
+    if (activeTpl) {
+      try {
+        const { loadRules } = await import("../core/engine/rules.js");
+        rules = loadRules(activeTpl.dir, activeTpl.manifest);
+      } catch (e) {
+        console.warn(`[main] could not load interaction rules: ${e?.message ?? e}`);
+      }
+    }
     const mergedFile = {
       ...liveFileCfg,
       stdinPtt: false,
       narrative: { ...(liveFileCfg.narrative ?? {}), ...(wn?.config ?? {}) },
-      narrativeFirstTurnDirective: worldMeta?.onboarding?.firstMessageHint ?? ""
+      narrativeOnboardingMode: onboardingMode,
+      narrativeFirstTurnDirective: firstTurnDirective,
+      rules
     };
     const resolved = resolvePipelineConfig(
       mergedFile,

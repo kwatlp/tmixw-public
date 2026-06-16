@@ -95,7 +95,7 @@ try {
     }
     if (meta.narrator.promptMode !== "override") throw new Error("promptMode wrong");
     if (meta.narrator.config?.lengthPreset !== "brief") throw new Error("narrator.config not carried");
-    if (meta.onboarding?.runAtStart !== "character-forge") throw new Error("onboarding missing");
+    if (!/Character Forge/.test(meta.onboarding?.firstMessageHint ?? "")) throw new Error("onboarding missing");
     if (!fs.existsSync(path.join(worldDir, "gm_bestiary.json"))) {
       throw new Error("gm_bestiary.json not copied into the world dir");
     }

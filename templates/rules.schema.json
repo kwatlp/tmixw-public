@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tmixw/templates/rules.schema.json",
+  "title": "InteractionRules",
+  "description": "Deterministic rules tables for the interaction engine (design doc 02 §4.3). The machine-readable twin of a template's narrator prose. Referenced from the manifest under gm.rulesFile. Anything omitted falls back to core/engine/rules.js DEFAULT_RULES, so a partial file is valid.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "die": { "type": "string", "description": "Base check die, e.g. \"d20\"." },
+        "dcByDifficulty": {
+          "type": "object",
+          "description": "Difficulty label → target number.",
+          "additionalProperties": { "type": "integer" }
+        },
+        "rankBonus": {
+          "type": "object",
+          "description": "Skill/character rank → flat check bonus.",
+          "additionalProperties": { "type": "integer" }
+        },
+        "critOn": { "type": "integer", "description": "Natural roll that crits (e.g. 20)." },
+        "fumbleOn": { "type": "integer", "description": "Natural roll that fumbles (e.g. 1)." }
+      }
+    },
+    "damage": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "formula": { "type": "string", "description": "Human-readable; the engine uses weaponDie + floor(stat/2)." },
+        "dice": {
+          "type": "object",
+          "description": "Weapon weight → die expression.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "gambit": {
+      "type": "object",
+      "properties": {
+        "xpAward": { "type": "integer" },
+        "options": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "currency": {
+      "type": "object",
+      "properties": {
+        "units": { "type": "array", "items": { "type": "string" } },
+        "ratiosToBase": {
+          "type": "object",
+          "description": "Each unit's value in the smallest (base) unit.",
+          "additionalProperties": { "type": "integer" }
+        }
+      }
+    },
+    "progression": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "rankOrder": { "type": "array", "items": { "type": "string" } },
+        "xpToNextByRank": {
+          "type": "object",
+          "description": "Rank → XP needed to reach the next (omit the top rank).",
+          "additionalProperties": { "type": "integer" }
+        },
+        "awards": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "rankUp": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "rest": { "type": "object", "additionalProperties": true },
+    "regenerateRerolls": {
+      "type": "boolean",
+      "description": "If true, a regenerate re-rolls the turn. Default false (the locked roll is fairer)."
+    }
+  }
+}

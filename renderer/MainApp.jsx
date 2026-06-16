@@ -3,12 +3,17 @@ import BorderFrame from "./components/BorderFrame.jsx";
 import CodexProvider from "./components/codex/CodexProvider.jsx";
 import CodexPanel from "./components/codex/CodexPanel.jsx";
 import NarrativePanel from "./components/NarrativePanel.jsx";
+import BackgroundMusic from "./components/BackgroundMusic.jsx";
 import VoiceHud from "./components/VoiceHud.jsx";
+import { useTts } from "./tts/useTts.js";
 import InputBar from "./components/InputBar.jsx";
 import Settings from "./components/Settings.jsx";
 import WorldsModal from "./components/WorldsModal.jsx";
 
 const defaultBg = "art/backgroundimage.jpg";
+// Bundled default soundtrack (doc 04): present but off until the player enables it.
+const defaultMusic = "music/Mr Smith - Shanty - default.mp3";
+const defaultMusicState = { enabled: false, volume: 0.4, loop: true };
 
 export default function MainApp() {
   /** Two stacked bg layers for the location crossfade (v0.7.0). */
@@ -20,9 +25,16 @@ export default function MainApp() {
     backgroundImage: defaultBg,
     borderMode: "svg",
     borderImage: null,
-    locationBackgrounds: {}
+    locationBackgrounds: {},
+    backgroundMusic: defaultMusic,
+    music: defaultMusicState
   });
+  // Text-to-speech config (doc 05); the controller drives auto-speak + barge-in.
+  const [tts, setTtsCfg] = useState({});
+  const ttsCtl = useTts(tts);
   const [thinking, setThinking] = useState(false);
+  // Engine resolved this turn's mechanics; narration hasn't started yet (doc 02 §6.3).
+  const [resolving, setResolving] = useState(false);
   const [turns, setTurns] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [worldsOpen, setWorldsOpen] = useState(false);
@@ -67,8 +79,16 @@ export default function MainApp() {
         backgroundImage: cfg.backgroundImage ?? defaultBg,
         borderMode: cfg.borderMode ?? "svg",
         borderImage: cfg.borderImage ?? null,
-        locationBackgrounds: cfg.locationBackgrounds ?? {}
+        locationBackgrounds: cfg.locationBackgrounds ?? {},
+        // An absent key gets the bundled default; an explicit "" (player cleared
+        // it) stays empty. music object merges over the defaults.
+        backgroundMusic: cfg.backgroundMusic !== undefined ? cfg.backgroundMusic : defaultMusic,
+        music: { ...defaultMusicState, ...(cfg.music ?? {}) }
       });
+      try {
+        const tcfg = await window.api.getTtsConfig();
+        if (!cancelled) setTtsCfg(tcfg ?? {});
+      } catch { /* ignore */ }
     })();
     return () => {
       cancelled = true;
@@ -139,6 +159,7 @@ export default function MainApp() {
       setTurns((prev) => [...prev, { user: t, narrative: null }]);
     });
     const offB = window.api.onBeforeKobold((p) => {
+      setResolving(false);
       setThinking(true);
     });
     // Streamed tokens fill the active (last) row progressively; the final
@@ -162,10 +183,12 @@ export default function MainApp() {
       setTurns((prev) => {
         const next = [...prev];
         const i = next.length - 1;
+        // Message-fin meta (doc 03): complete vs truncated, for MessageFin.
+        const meta = p.meta ?? null;
         if (i >= 0 && (next[i].narrative == null || wasStreamed)) {
-          next[i] = { ...next[i], narrative: p.text ?? "" };
+          next[i] = { ...next[i], narrative: p.text ?? "", meta };
         } else {
-          next.push({ user: "", narrative: p.text ?? "" });
+          next.push({ user: "", narrative: p.text ?? "", meta });
         }
         return next;
       });
@@ -179,18 +202,51 @@ export default function MainApp() {
         const next = [...prev];
         const i = next.length - 1;
         if (i >= 0 && next[i].narrative != null) {
-          next[i] = { ...next[i], narrative: p.text ?? "" };
+          next[i] = { ...next[i], narrative: p.text ?? "", meta: p.meta ?? next[i].meta ?? null };
         }
         return next;
       });
     });
     const offP = window.api.onNarrativePending((p) => {
       setPending({ id: p.id, mode: p.mode, graceMs: p.graceMs });
+      // Engine-rendered mechanical blocks (design doc 02 §6.2) and the message-
+      // fin meta (doc 03) ride on the pending event; attach them to the current
+      // turn so NarrativePanel composites prose + sections + fin.
+      if (p.sections || p.meta) {
+        setTurns((prev) => {
+          if (prev.length === 0) return prev;
+          const next = [...prev];
+          const cur = next[next.length - 1];
+          next[next.length - 1] = {
+            ...cur,
+            ...(p.sections ? { sections: p.sections } : {}),
+            ...(p.meta ? { meta: p.meta } : {})
+          };
+          return next;
+        });
+      }
     });
     const offA = window.api.onNarrativeAccepted(() => setPending(null));
+    // Two-phase indicator (design doc 02 §6.3): the engine resolves before the
+    // narrator speaks. Cleared when the prose starts (token/narrative events).
+    const offM = window.api.onMechanicsResolved?.((p) => {
+      setResolving(true);
+      // Show the engine's roll/outcome the instant it resolves — the "dice have
+      // spoken" beat, ahead of the prose. The pending event re-attaches the same
+      // sections on accept; this just brings them forward (idempotent).
+      if (p?.sections) {
+        setTurns((prev) => {
+          if (prev.length === 0) return prev;
+          const next = [...prev];
+          next[next.length - 1] = { ...next[next.length - 1], sections: p.sections };
+          return next;
+        });
+      }
+    });
     const offE = window.api.onError((p) => {
       console.error(`[pipeline error] (${p?.phase ?? "?"})`, p?.error ?? p);
       setThinking(false);
+      setResolving(false);
       setStreaming(false);
       streamedRef.current = false;
     });
@@ -221,6 +277,7 @@ export default function MainApp() {
       offU();
       offP();
       offA();
+      offM?.();
       offE();
       offReady();
       offStop();
@@ -235,6 +292,7 @@ export default function MainApp() {
       setTurns([]);
       setPending(null);
       setThinking(false);
+      setResolving(false);
       setStreaming(false);
       streamedRef.current = false;
     });
@@ -272,6 +330,8 @@ export default function MainApp() {
         )}
       </div>
 
+      <BackgroundMusic ui={ui} />
+
       <BorderFrame borderMode={ui.borderMode} borderImage={ui.borderImage} />
 
       <div className="ui-root">
@@ -291,10 +351,12 @@ export default function MainApp() {
           <NarrativePanel
             turns={turns}
             thinking={thinking}
+            resolving={resolving}
             streaming={streaming}
             pending={pending}
             chapterTitle={chapterTitle}
             onReveal={(m) => setReveal({ entryId: m.entryId, tab: m.tab, nonce: Date.now() })}
+            onSpeak={ttsCtl.supported && tts.enabled ? ttsCtl.speak : null}
           />
           {voiceHudOpen ? (
             <VoiceHud recording={hudRecording} onHide={() => setVoiceHudOpen(false)} />

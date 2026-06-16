@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "_doc": "Machine-readable twin of system_prompt.md §3–§4 / §7. The engine computes from this; the prose explains feel. See docs/design/02-interaction-engine.md.",
+  "resolution": {
+    "die": "d20",
+    "dcByDifficulty": { "routine": 14, "tough": 18, "severe": 22, "heroic": 26 },
+    "rankBonus": { "E": 1, "D": 2, "C": 3, "B": 4, "A": 5, "S": 6 },
+    "critOn": 20,
+    "fumbleOn": 1
+  },
+  "damage": {
+    "formula": "weaponDie + floor(stat/2)",
+    "dice": { "light": "d6", "standard": "d8", "heavy": "d12" }
+  },
+  "gambit": {
+    "xpAward": 5,
+    "options": ["advantage", "+1d6", "ignoreGuard", "rider"]
+  },
+  "currency": {
+    "units": ["gc", "ss", "cb"],
+    "ratiosToBase": { "gc": 200, "ss": 10, "cb": 1 }
+  },
+  "progression": {
+    "rankOrder": ["E", "D", "C", "B", "A", "S"],
+    "xpToNextByRank": { "E": 100, "D": 150, "C": 225, "B": 340, "A": 500 },
+    "awards": { "mook": 5, "elite": 12, "boss": 25, "quest": 25, "gambit": 5, "discovery": 10 },
+    "rankUp": { "vitMax": 10, "staMax": 5, "aetMax": 5, "statPoints": 2, "healFraction": 0.5 }
+  },
+  "rest": { "recoverFraction": { "stamina": 1, "vitality": 0.25 } },
+  "regenerateRerolls": false
+}

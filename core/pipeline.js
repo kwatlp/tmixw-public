@@ -30,8 +30,8 @@ import {
   resolveWhisperModel
 } from "./bin_paths.js";
 import { createSttAdapter } from "./stt/index.js";
-import { LENGTH_PRESETS, normalizeLengthPreset } from "./length_presets.js";
-import { normalizeStyle, buildStyleDirectives } from "./style_presets.js";
+import { LENGTH_PRESETS, normalizeLengthPreset, deriveCeiling } from "./length_presets.js";
+import { normalizeStyle, buildStyleDirectives, buildLengthDirective } from "./style_presets.js";
 import { detectTemplateFromModelName, normalizeTemplateName } from "./templates.js";
 import {
   buildMemoryRuntimeConfig,
@@ -59,8 +59,17 @@ import {
 import {
   createInferenceAdapter,
   buildInferenceRuntimeConfig,
-  createCachedTokenCounter
+  createCachedTokenCounter,
+  estimateTokensFallback
 } from "./inference/index.js";
+import { buildConfirmOpeningDirective } from "./character/opening.js";
+import { DEFAULT_RULES } from "./engine/rules.js";
+import { classifyIntent } from "./engine/intent.js";
+import { runReferee, looksLikeAction } from "./engine/referee.js";
+import { resolve as resolveMechanics, renderMechanicsDirective } from "./engine/resolve.js";
+import { sanitizeNarration } from "./engine/sanitize.js";
+import { applyDeltas } from "./engine/apply.js";
+import { makeRng } from "./engine/rng.js";
 
 /** Re-export for callers that previously imported `SESSION_PATH` from this module. */
 export { getSessionPath };
@@ -111,10 +120,19 @@ export function resolvePipelineConfig(fileCfg, narrativeSystem, extractorSystem,
   const style = normalizeStyle(
     /** @type {Record<string, unknown>} */ (fileCfg.narrative ?? {}).style
   );
+  // Length is a soft target (design doc 06): the preset's `target` drives the
+  // directive, while the backend cap (`max_length`) is a *ceiling* derived as
+  // target × headroom — a backstop, not the aimed size. `custom` keeps the
+  // player's manual slider value as the literal ceiling (back-compat).
+  const lengthTarget = preset ? preset.target : null;
   if (preset) {
-    narrativeGen.max_length = preset.max_length;
-    if (preset.antiEos) narrativeGen.antiEos = true;
+    narrativeGen.max_length = deriveCeiling(preset.target);
   }
+  const lengthCeiling = Number(narrativeGen.max_length) || null;
+  const narrativeLengthDirective = buildLengthDirective({
+    lengthPreset,
+    customMaxLength: lengthCeiling
+  });
   const extractorGen = {
     ...defaultExtractorGen,
     ...(/** @type {object} */ (fileCfg.extractor ?? {}))
@@ -147,8 +165,13 @@ export function resolvePipelineConfig(fileCfg, narrativeSystem, extractorSystem,
     narrativeSystem,
     extractorSystem,
     loreCorrectionSystem,
-    /** One-shot system directive for a world's very first narrator turn (story-template onboarding, v0.9.0 D5). Electron main resolves it from the active world's world.json. */
+    /** One-shot system directive for a world's very first narrator turn (story-template onboarding, v0.9.0 D5). Electron main resolves it from the active world's world.json. In "app-forge" mode this carries the post-creation opening hint instead of the legacy forge prose. */
     narrativeFirstTurnDirective: String(fileCfg.narrativeFirstTurnDirective ?? ""),
+    /** Onboarding handoff (design doc 01 §10): "app-forge" defers the opening until the app writes a structured sheet, then confirms it; anything else runs the legacy narrator forge. */
+    narrativeOnboardingMode:
+      String(fileCfg.narrativeOnboardingMode ?? "") === "app-forge" ? "app-forge" : "narrator-forge",
+    /** Interaction-engine rules (design doc 02), resolved from the active template at boot; null ⇒ engine defaults. */
+    rules: fileCfg.rules ?? null,
     koboldGenerateUrl:
       process.env.KOBOLD_GENERATE_URL ??
       fileCfg.koboldGenerateUrl ??
@@ -195,7 +218,20 @@ export function resolvePipelineConfig(fileCfg, narrativeSystem, extractorSystem,
     /** Narrator context budget (memory sections + retrieval). */
     context: buildContextRuntimeConfig(fileCfg),
     narrativeLengthPreset: lengthPreset,
-    narrativeLengthDirective: preset?.directive ?? "",
+    /** Soft-target size the narration aims for (doc 06); null for the custom slider. */
+    narrativeLengthTarget: lengthTarget,
+    /** Derived backend ceiling (target × headroom, clamped); the cap, not the aim. */
+    narrativeLengthCeiling: lengthCeiling,
+    narrativeLengthDirective,
+    /**
+     * Token budget for the unprompted story-template opening turn (welcome +
+     * full Character Forge in one message). The opening is far longer than any
+     * per-turn length preset (Brief=120 … Sprawling=700), so it gets its own
+     * generous budget — otherwise it truncates mid-forge and the player must
+     * hit Continue. Override via `narrative.openingMaxLength`; default 1024.
+     */
+    narrativeOpeningMaxLength:
+      Number((/** @type {Record<string, unknown>} */ (fileCfg.narrative ?? {})).openingMaxLength) || 1024,
     /** Style & voice presets (v0.6.0 D4): normalized ids + the directive lines they emit. */
     narrativeStyle: style,
     narrativeStyleDirectives: buildStyleDirectives(style),
@@ -672,6 +708,10 @@ class LocalPipeline extends EventEmitter {
      */
     this._pending = null;
     this._pendingSeq = 0;
+    /** Interaction-engine rules (design doc 02); defaults keep the engine running templateless. */
+    this.rules = resolvedConfig.rules ?? DEFAULT_RULES;
+    /** Monotonic per-turn seed source so each resolution is replayable/loggable. */
+    this._turnSeq = (Date.now() ^ (Math.random() * 0x100000000)) >>> 0;
     /** Post-acceptance extractor/memory work for the most recent accept (awaitable in tests). */
     this._postAcceptPromise = Promise.resolve();
     /**
@@ -687,6 +727,8 @@ class LocalPipeline extends EventEmitter {
     this._detectedTemplate = "plain";
     /** Once a turn has generated, late detection results no longer apply (never switch mid-session). */
     this._templateLocked = false;
+    /** Guards the one-shot story-template opening turn (v0.9.0 D5) so it fires at most once per pipeline instance. */
+    this._openingKicked = false;
     /** True while a narrator SSE stream is in flight (v0.7.0; gates stopGeneration). */
     this._streamActive = false;
     /**
@@ -818,8 +860,35 @@ class LocalPipeline extends EventEmitter {
   }
 
   /** Instance-level streaming wrapper — overridable in model-free tests. */
-  _generateStream(prompt, gen, cfg, onText) {
-    return this.inference.generateStream(prompt, gen ?? (cfg ?? this.cfg).narrative, onText);
+  _generateStream(prompt, gen, cfg, onText, onDone) {
+    return this.inference.generateStream(prompt, gen ?? (cfg ?? this.cfg).narrative, onText, onDone);
+  }
+
+  /**
+   * Build the per-message "fin" metadata (design doc 03): did this reply end
+   * naturally or hit the token ceiling? `finishReason` from the adapter is the
+   * primary signal; a token-budget heuristic (chars/4 vs max_length) is the
+   * backend-agnostic fallback for non-stream/custom. A user Stop wins as
+   * `"aborted"`. Computed against the freshly generated text + that call's
+   * budget, so a continue chunk is judged on the continue budget.
+   * @param {string} text - the text generated by THIS call (not the combined display text)
+   * @param {string|null} finishReason - normalized reason from the adapter, or null
+   */
+  _buildGenMeta(text, finishReason, gen, cfg) {
+    const g = gen ?? (cfg ?? this.cfg).narrative ?? {};
+    const maxTokens = Number(g.max_length) || null;
+    const tokenCount = estimateTokensFallback(text);
+    const reason = this._stopRequested ? "aborted" : (finishReason || "unknown");
+    const truncated =
+      reason === "length" ||
+      (reason === "unknown" && maxTokens != null && tokenCount >= maxTokens * 0.98);
+    return {
+      finishReason: reason,
+      maxTokens,
+      tokenCount,
+      truncated,
+      lengthPreset: (cfg ?? this.cfg)?.narrativeLengthPreset ?? null
+    };
   }
 
   /**
@@ -835,8 +904,16 @@ class LocalPipeline extends EventEmitter {
     const startedAt = Date.now();
     this._stopRequested = false;
     this._lastGenTiming = { ttftMs: null, generateMs: null, streamed: false };
+    // Message-fin signal (doc 03): the adapter reports the reason via onDone;
+    // unknown until then, so the non-stream/custom paths fall back to the
+    // token-budget heuristic in _buildGenMeta.
+    let finishReason = null;
+    const onDone = (d) => {
+      if (d?.finishReason) finishReason = d.finishReason;
+    };
     const finish = (result) => {
       this._lastGenTiming.generateMs = Date.now() - startedAt;
+      this._lastGenMeta = this._buildGenMeta(result, finishReason, gen, cfg);
       return result;
     };
     if (!cfg.narrativeStream) {
@@ -850,7 +927,7 @@ class LocalPipeline extends EventEmitter {
           this._lastGenTiming.ttftMs = Date.now() - startedAt;
         }
         this.emit("narrative:token", { text: mapText(accum) });
-      });
+      }, onDone);
       if (text) return finish(text);
       if (this._stopRequested) {
         // Stop landed before the first token — do not relaunch the
@@ -919,10 +996,136 @@ class LocalPipeline extends EventEmitter {
    * (and a regenerate of that first reply correctly re-applies it).
    */
   _firstTurnDirective() {
-    const d = this.cfg.narrativeFirstTurnDirective;
-    if (!d) return "";
     const hasReply = (this.session?.messages ?? []).some((m) => m.role === "assistant");
-    return hasReply ? "" : d;
+    if (hasReply) return "";
+    // App-forge worlds (design doc 01 §10): the opening confirms the finished
+    // sheet rather than running a prose forge. Defer (return "") until the app
+    // has written a structured character — characterCreate then re-kicks the
+    // opening via kickoffOpening(). The template's openingHint rides in
+    // narrativeFirstTurnDirective here.
+    if (this.cfg.narrativeOnboardingMode === "app-forge") {
+      const character = this.worldState?.character;
+      if (!character || character.createdBy !== "app-forge") return "";
+      return buildConfirmOpeningDirective(character, this.cfg.narrativeFirstTurnDirective);
+    }
+    return this.cfg.narrativeFirstTurnDirective || "";
+  }
+
+  /**
+   * Public re-trigger for the unprompted opening (design doc 01 §10). In
+   * app-forge mode the opening is deferred at start() — the directive is empty
+   * until the player finishes the forge — so the character:create handler calls
+   * this once the sheet is written. A no-op if the opening already fired or a
+   * reply exists. Safe to call when not booted.
+   */
+  kickoffOpening() {
+    if (!this._started) return;
+    this._kickoffOpening();
+  }
+
+  /**
+   * Story-template opening (v0.9.0 D5): on a templated world's first session
+   * the narrator speaks first. This runs the onboarding directive
+   * (`firstMessageHint`, e.g. the welcome + Character Forge) as an unprompted
+   * turn, so the opening message gives the player everything they need to make
+   * a character before they've said a word. Fires at most once per pipeline
+   * instance and only while the world has no committed narrator reply — so a
+   * later launch (the accepted opening is now in the session) skips it, and a
+   * blank world (no directive) never triggers it. Unprompted generation needs
+   * the backend up, which may still be loading at start(), so it waits for the
+   * model to answer before generating, then runs through the turn gate so it
+   * can't race a player turn.
+   */
+  async _kickoffOpening() {
+    if (this._openingKicked) return;
+    if (!this._firstTurnDirective()) return; // no directive, or a reply already exists
+    this._openingKicked = true;
+
+    let ready = false;
+    for (let attempt = 0; attempt < 20 && this._started; attempt++) {
+      try {
+        await this.inference.modelInfo();
+        ready = true;
+        break;
+      } catch {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    if (!ready || !this._started) return;
+
+    this._gate = this._gate
+      .then(() => this._runOpeningTurn())
+      .catch((error) => this.emit("error", { error, phase: "pipeline" }));
+  }
+
+  /**
+   * Generate and park the unprompted opening narration. Mirrors the narrative
+   * half of {@link _runTurnFromTranscript} but with no player message: an empty
+   * transcript and the onboarding directive injected. Parked as a normal "new"
+   * pending so accept / regenerate / restore all behave identically (a
+   * regenerate re-applies the directive via {@link _firstTurnDirective} since
+   * no assistant reply is committed yet).
+   */
+  async _runOpeningTurn() {
+    // Re-check under the gate: a player turn may have raced in first, or the
+    // reply may already exist (e.g. a restored pending).
+    if (this._pending) return;
+    const directive = this._firstTurnDirective();
+    if (!directive) return;
+
+    const cfg = this.cfg;
+    const turnStartedAt = Date.now();
+    this._templateLocked = true;
+
+    let narrativePrompt;
+    // The opening delivers the welcome + the entire Character Forge in one
+    // message, so it needs far more room than a normal turn's length preset
+    // (which would truncate it mid-forge and force a Continue). Use the
+    // dedicated opening budget and let it terminate naturally on the stop
+    // sequence / EOS rather than inheriting an antiEos cap.
+    const openingGen = { ...cfg.narrative, max_length: cfg.narrativeOpeningMaxLength };
+    delete openingGen.antiEos;
+    let narrativeGen = openingGen;
+    try {
+      const { prompt, report, stopSequences } = await assembleNarrativeContext({
+        session: this.session,
+        worldState: this.worldState,
+        cfg,
+        vectorStore: this._getMemoryVectors(),
+        countTokens: this._countTokensCached,
+        template: this._activeTemplateName(),
+        gmBestiary: this.gmBestiary ?? null,
+        extraDirective: directive
+      });
+      narrativePrompt = prompt;
+      this.lastContextReport = report;
+      report.timing = { assembleMs: Date.now() - turnStartedAt };
+      if (stopSequences) narrativeGen = { ...openingGen, stop_sequence: stopSequences };
+    } catch (error) {
+      this.emit("error", { error, phase: "narrative_prompt" });
+      return;
+    }
+
+    // Empty-but-beforeKobold transcript drives the renderer's "thinking"
+    // indicator during the unprompted generation (onTranscript ignores it).
+    this.emit("transcript", { text: "", beforeKobold: true });
+
+    let reply;
+    try {
+      reply = await this._generateNarrative(narrativePrompt, narrativeGen, cfg);
+    } catch (error) {
+      this.emit("error", { error, phase: "kobold" });
+      return;
+    }
+
+    if (this.lastContextReport) {
+      Object.assign(this.lastContextReport.timing ?? (this.lastContextReport.timing = {}), this._lastGenTiming, {
+        turnMs: Date.now() - turnStartedAt
+      });
+    }
+
+    this.emit("narrative", { text: reply, meta: this._lastGenMeta ?? null });
+    this._enterPending(reply, "", "new");
   }
 
   /**
@@ -984,6 +1187,12 @@ class LocalPipeline extends EventEmitter {
     this._templateLocked = true;
     const turnStartedAt = Date.now();
 
+    // INTENT → RESOLUTION (design doc 02): classify the player's message and let
+    // the deterministic engine resolve any mechanics BEFORE narration. The
+    // result (rolls/deltas/sections) is parked with the pending reply and only
+    // commits on accept. Freeform turns resolve to null — narration only, as today.
+    const mechanics = await this._resolveMechanics(text);
+
     let narrativePrompt;
     let narrativeGen = cfg.narrative;
     try {
@@ -995,7 +1204,10 @@ class LocalPipeline extends EventEmitter {
         countTokens: this._countTokensCached,
         template: templateName,
         gmBestiary: this.gmBestiary ?? null,
-        extraDirective: this._firstTurnDirective()
+        extraDirective: this._firstTurnDirective(),
+        // The resolved-mechanics block rides on the latest user turn (most
+        // salient slot) rather than the distant system block — see context.js.
+        lateDirective: renderMechanicsDirective(mechanics)
       });
       narrativePrompt = prompt;
       this.lastContextReport = report;
@@ -1022,8 +1234,74 @@ class LocalPipeline extends EventEmitter {
       turnMs: Date.now() - turnStartedAt
     });
 
-    this.emit("narrative", { text: reply });
-    this._enterPending(reply, text, "new");
+    reply = this._sanitizeReply(reply);
+    this.emit("narrative", { text: reply, meta: this._lastGenMeta ?? null });
+    this._enterPending(reply, text, "new", mechanics);
+  }
+
+  /**
+   * Strip stray mechanical output the model printed despite the directive
+   * (design doc 02 §8) — but only on app-forged worlds, where the engine + app
+   * own the numbers. Blank/legacy worlds keep the model's prose verbatim.
+   * @param {string} reply
+   */
+  _sanitizeReply(reply) {
+    if (this.worldState?.character?.createdBy !== "app-forge") return reply;
+    const cleaned = sanitizeNarration(reply);
+    // Never blank a reply entirely — if stripping ate everything, keep original.
+    return cleaned.trim() ? cleaned : reply;
+  }
+
+  /**
+   * Classify intent + run the deterministic engine for one player message
+   * (design doc 02 §3). Returns a ResolutionResult (parked with the pending
+   * reply, committed on accept) or null for a freeform/narration-only turn.
+   * Never throws — any engine error degrades to a plain narration turn.
+   * @param {string} text
+   */
+  async _resolveMechanics(text) {
+    // The interaction engine only engages for app-forged worlds (design doc 02
+    // consumes doc 01's structured sheet). Blank/legacy worlds behave exactly as
+    // before — no classification, no mechanics.
+    if (this.worldState?.character?.createdBy !== "app-forge") return null;
+    try {
+      const proposal = await classifyIntent(text, this._intentCtx(text));
+      const rng = makeRng((this._turnSeq = (this._turnSeq + 0x9e3779b1) >>> 0));
+      const result = resolveMechanics(
+        proposal,
+        this.worldState.character,
+        this.worldState.encounter,
+        this.rules,
+        rng,
+        this.gmBestiary ?? null
+      );
+      if (result) this.emit("mechanics:resolved", result.public);
+      return result;
+    } catch (error) {
+      this.emit("error", { error, phase: "engine" });
+      return null;
+    }
+  }
+
+  /**
+   * Context passed to intent classification. The referee LLM pass (design doc
+   * 02 §3.1) is offered only for action-ish freeform (a cheap pre-filter keeps
+   * pure-narration turns model-call-free), and routes through the narration
+   * inference adapter.
+   * @param {string} text
+   */
+  _intentCtx(text) {
+    const character = this.worldState?.character ?? {};
+    const inEncounter = this.worldState?.encounter?.active === true;
+    if (!looksLikeAction(text, inEncounter)) return {};
+    const refereeCtx = {
+      stats: character.stats,
+      skills: character.skills,
+      inEncounter
+    };
+    return {
+      referee: (t) => runReferee(t, refereeCtx, (p, g) => this.inference.generate(p, g))
+    };
   }
 
   /**
@@ -1033,19 +1311,35 @@ class LocalPipeline extends EventEmitter {
    * @param {string} text - narrator response
    * @param {string} transcript - the player message that produced it
    * @param {string} mode - "new" | "regenerate" | "continue" | "rewrite" | "restored"
+   * @param {object|null} [mechanics] - parked ResolutionResult (doc 02); deltas apply on accept
    */
-  _enterPending(text, transcript, mode) {
+  _enterPending(text, transcript, mode, mechanics = null, meta) {
     const graceMs = this.cfg.acceptGraceMs;
+    // Carry the message-fin meta (doc 03) of the generation that produced this
+    // reply through the pending lifecycle, so it survives accept unchanged.
+    // Callers that did NOT just generate `text` (the "restored" error paths)
+    // pass meta=null explicitly so a stale prior-turn meta isn't mislabeled
+    // onto the recovered message; the normal paths default to _lastGenMeta.
+    const resolvedMeta = meta === undefined ? (this._lastGenMeta ?? null) : meta;
     const pending = {
       id: ++this._pendingSeq,
       text,
       transcript,
       mode,
+      mechanics: mechanics ?? null,
+      meta: resolvedMeta,
       createdAt: Date.now(),
       timer: null
     };
     this._pending = pending;
-    this.emit("narrative:pending", { id: pending.id, text, mode, graceMs });
+    this.emit("narrative:pending", {
+      id: pending.id,
+      text,
+      mode,
+      graceMs,
+      sections: mechanics?.sections ?? null,
+      meta: resolvedMeta
+    });
     if (graceMs === 0) {
       this.acceptPending("auto");
       return;
@@ -1069,7 +1363,21 @@ class LocalPipeline extends EventEmitter {
     if (p.timer) clearTimeout(p.timer);
     this._pending = null;
     addMessage(this.session, "assistant", p.text);
-    this.emit("narrative:accepted", { id: p.id, text: p.text, reason });
+    // COMMIT (design doc 02 §3.2): apply the engine's parked deltas exactly once,
+    // before the extractor runs. The engine is the sole writer of mechanical
+    // fields, so this never races the extractor (which skips them for app-forge
+    // sheets). An unaccepted turn never reaches here, so it mutates nothing.
+    if (p.mechanics?.deltas) {
+      applyDeltas(this.worldState, p.mechanics.deltas);
+      saveWorldState(this.worldState);
+      this.emit("world:updated", { worldState: this.worldState });
+    }
+    this.emit("narrative:accepted", {
+      id: p.id,
+      text: p.text,
+      reason,
+      sections: p.mechanics?.sections ?? null
+    });
     this._postAcceptPromise = this._postAcceptWork(p).catch((error) => {
       this.emit("error", { error, phase: "extractor" });
     });
@@ -1249,12 +1557,18 @@ class LocalPipeline extends EventEmitter {
 
     let baseText;
     let transcript;
+    // Reuse the pending turn's resolved mechanics — a regenerate re-narrates the
+    // SAME outcome, it never re-rolls (design doc 02 §3.2). After accept the
+    // pending is gone and its deltas are already committed, so mechanics is null
+    // (no re-apply, no directive).
+    let mechanics = null;
     const p = this._pending;
     if (p) {
       if (p.timer) clearTimeout(p.timer);
       this._pending = null;
       baseText = p.text;
       transcript = p.transcript;
+      mechanics = p.mechanics ?? null;
     } else {
       const msgs = this.session.messages;
       const last = msgs[msgs.length - 1];
@@ -1286,7 +1600,12 @@ class LocalPipeline extends EventEmitter {
         template: templateName,
         gmBestiary: this.gmBestiary ?? null,
         // Regenerating the very first reply re-applies the onboarding
-        // directive (the assistant message was popped above).
+        // directive (the assistant message was popped above). The RESOLVED
+        // MECHANICS block is re-stated only when the turn is re-narrated from
+        // scratch (regenerate/rewrite) — NOT on continue, which merely extends
+        // the existing prose: re-asserting "the outcome is final, narrate it"
+        // over an already-complete narration makes the model stop (design §3.2,
+        // "continue extends the prose only").
         extraDirective: [
           this._firstTurnDirective(),
           mode === "rewrite" && instruction
@@ -1294,7 +1613,10 @@ class LocalPipeline extends EventEmitter {
             : ""
         ]
           .filter(Boolean)
-          .join("\n")
+          .join("\n"),
+        // Re-narration (regenerate/rewrite) re-states the resolved mechanics on
+        // the latest user turn; continue extends prose and must not (design §3.2).
+        lateDirective: mode === "continue" ? "" : renderMechanicsDirective(mechanics)
       });
       this.lastContextReport = report;
       if (stopSequences) narrativeGen = { ...cfg.narrative, stop_sequence: stopSequences };
@@ -1308,7 +1630,8 @@ class LocalPipeline extends EventEmitter {
             : `${assembled} ${baseText}`
           : assembled;
     } catch (error) {
-      this._enterPending(baseText, transcript, "restored");
+      // No new text was generated here — don't carry the prior turn's fin meta.
+      this._enterPending(baseText, transcript, "restored", mechanics, null);
       this.emit("error", { error, phase: "narrative_prompt" });
       return;
     }
@@ -1324,14 +1647,15 @@ class LocalPipeline extends EventEmitter {
     } catch (error) {
       // Generation failed — restore the previous response as pending so the
       // on-screen text can still be accepted.
-      this._enterPending(baseText, transcript, "restored");
+      // No new text was generated here — don't carry the prior turn's fin meta.
+      this._enterPending(baseText, transcript, "restored", mechanics, null);
       this.emit("error", { error, phase: "kobold" });
       return;
     }
 
-    const newText = mode === "continue" ? `${baseText} ${reply}` : reply;
-    this.emit("narrative:updated", { text: newText, mode });
-    this._enterPending(newText, transcript, mode);
+    const newText = this._sanitizeReply(mode === "continue" ? `${baseText} ${reply}` : reply);
+    this.emit("narrative:updated", { text: newText, mode, meta: this._lastGenMeta ?? null });
+    this._enterPending(newText, transcript, mode, mechanics);
   }
 
   start() {
@@ -1445,6 +1769,11 @@ class LocalPipeline extends EventEmitter {
     }
 
     this.emit("ready");
+
+    // Story-template opening (D5): if this world starts with an onboarding
+    // directive and no narrator reply yet, the narrator opens unprompted.
+    // Fire-and-forget — it waits for the backend internally.
+    this._kickoffOpening().catch(() => {});
   }
 
   /**

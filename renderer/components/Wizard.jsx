@@ -81,6 +81,7 @@ export default function Wizard({ onDone }) {
   const [modelPath, setModelPath] = useState("");
   const [modelSize, setModelSize] = useState(0);
   const [modelError, setModelError] = useState("");
+  const [modelDownloadStatus, setModelDownloadStatus] = useState("idle"); // idle | downloading | done | error
 
   // Player agent opt-in (scaffolding only — config surface, no behavior)
   const [agentEnabled, setAgentEnabled] = useState(false);
@@ -356,6 +357,29 @@ export default function Wizard({ onDone }) {
       setModelSize(Number(r?.sizeBytes ?? 0));
     } catch (e) {
       setModelError(e?.message ?? String(e));
+    }
+  }, []);
+
+  const handleDownloadModel = useCallback(async () => {
+    setModelError("");
+    setModelDownloadStatus("downloading");
+    setDownloadProgress({ received: 0, total: 0, percent: 0 });
+    downloadStartRef.current = Date.now();
+    try {
+      const r = await window.api.wizardDownloadModel();
+      if (r?.ok) {
+        setModelPath(String(r.path ?? ""));
+        setModelSize(Number(r.sizeBytes ?? 0));
+        setModelDownloadStatus("done");
+      } else if (r?.cancelled) {
+        setModelDownloadStatus("idle");
+      } else {
+        setModelError("Download failed.");
+        setModelDownloadStatus("error");
+      }
+    } catch (e) {
+      setModelError(e?.message ?? String(e));
+      setModelDownloadStatus("error");
     }
   }, []);
 
@@ -934,16 +958,48 @@ export default function Wizard({ onDone }) {
             ) : (
               <>
                 <p className="wizard-copy">
-                  Select a GGUF model for KoboldCPP. A Q4_K_M class 7B–12B model
-                  is a good starting point on mid-range GPUs.
+                  Download a curated default model, or select your own GGUF. A
+                  Q4_K_M class 7B–12B model is a good starting point on mid-range
+                  GPUs.
                 </p>
-                <button
-                  type="button"
-                  className="wizard-secondary"
-                  onClick={handlePickModel}
-                >
-                  Select your GGUF model file
-                </button>
+                {modelDownloadStatus === "downloading" ? (
+                  <div className="wizard-download-progress">
+                    <div className="wizard-progress-bar">
+                      <div
+                        className="wizard-progress-fill"
+                        style={{ width: `${Math.max(downloadProgress.percent, 2)}%` }}
+                      />
+                    </div>
+                    <p className="wizard-muted">
+                      {downloadProgress.percent}% — {formatBytes(downloadProgress.received)} / {formatBytes(downloadProgress.total)}
+                      {" "}{formatEta(downloadProgress.received, downloadProgress.total, downloadStartRef.current)}
+                    </p>
+                    <button
+                      type="button"
+                      className="wizard-cancel"
+                      onClick={handleCancelDownload}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="wizard-model-choice">
+                    <button
+                      type="button"
+                      className="wizard-secondary"
+                      onClick={handleDownloadModel}
+                    >
+                      Download default model (~4.4 GB)
+                    </button>
+                    <button
+                      type="button"
+                      className="wizard-secondary"
+                      onClick={handlePickModel}
+                    >
+                      I already have a model — select GGUF file
+                    </button>
+                  </div>
+                )}
                 {modelError ? (
                   <p className="wizard-error">{modelError}</p>
                 ) : null}

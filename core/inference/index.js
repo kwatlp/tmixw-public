@@ -12,9 +12,13 @@
  *                     the backend is generating — KoboldCPP's single slot),
  *                     or "none" (no abort support); sync property
  *   generate(prompt, gen)            → string (full completion)
- *   generateStream(prompt, gen, onText) → string; onText(accumulated)
+ *   generateStream(prompt, gen, onText, onDone?) → string; onText(accumulated)
  *                     per chunk; throws on transport failure or when the
- *                     backend cannot stream — callers fall back to generate()
+ *                     backend cannot stream — callers fall back to generate().
+ *                     `onDone({ finishReason })` (optional) fires once when the
+ *                     stream ends with a known reason — see normalizeFinishReason.
+ *                     The return value stays the plain text; onDone is the
+ *                     additive side channel for the message-fin indicator (doc 03).
  *   abort()         - stop the in-flight generation server-side (best effort)
  *   modelInfo()     → { name } (template detection, validate display)
  *   health()        → { ok, model?, error? } (validate-on-save)
@@ -174,6 +178,22 @@ export async function* sseDataEvents(res) {
       if (dataLine) yield dataLine.slice(5).trim();
     }
   }
+}
+
+/**
+ * Normalize a backend's raw finish/done reason into the fin indicator's
+ * vocabulary (doc 03 §3.1). `"length"` (hit the token ceiling — truncated)
+ * vs `"stop"` (natural EOS / a provider stop string — complete). Our own
+ * client-side stop-sequence cut is reported separately as `"stopSequence"`,
+ * and a user Stop as `"aborted"`; both are natural, not truncation.
+ * @param {unknown} raw
+ * @returns {"length" | "stop" | "unknown"}
+ */
+export function normalizeFinishReason(raw) {
+  const s = String(raw ?? "").toLowerCase();
+  if (s === "length" || s === "max_tokens") return "length";
+  if (s === "stop" || s === "eos" || s === "stop_sequence" || s === "end_turn") return "stop";
+  return "unknown";
 }
 
 /**

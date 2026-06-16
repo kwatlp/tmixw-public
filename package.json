@@ -1,6 +1,6 @@
 {
   "name": "local-ai-assistant-vtt",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
@@ -14,8 +14,11 @@
     "worlds:test": "node scripts/worlds_test.js",
     "templates:test": "node scripts/templates_test.js",
     "story_templates:test": "node scripts/story_templates_test.js",
+    "character:test": "node scripts/character_test.js",
+    "engine:test": "node scripts/engine_test.js",
     "ptt:test": "node scripts/ptt_test.js",
-    "test": "node scripts/run_fixtures.js && node scripts/acceptance_test.js && node scripts/worlds_test.js && node scripts/story_templates_test.js && node scripts/ptt_test.js && node scripts/templates_test.js && node scripts/context_test.js && node scripts/memory_test.js && node scripts/inference_test.js && node scripts/imagegen_test.js",
+    "tts:test": "node scripts/tts_test.js",
+    "test": "node scripts/run_fixtures.js && node scripts/acceptance_test.js && node scripts/worlds_test.js && node scripts/story_templates_test.js && node scripts/character_test.js && node scripts/engine_test.js && node scripts/ptt_test.js && node scripts/tts_test.js && node scripts/templates_test.js && node scripts/context_test.js && node scripts/memory_test.js && node scripts/inference_test.js && node scripts/imagegen_test.js",
     "imagegen:test": "node scripts/imagegen_test.js",
     "inference:test": "node scripts/inference_test.js",
     "context:test": "node scripts/context_test.js",
@@ -39,7 +42,7 @@
     "lore:test": "node core/lore_cli.js test",
     "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "node scripts/check-phase4-resources.js && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false vite build && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
-    "electron:build:dir": "cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false vite build && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir"
+    "electron:build:dir": "cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false vite build && cross-env NODE_ENV=production CSC_IDENTITY_AUTO_DISCOVERY=false TMIXW_SKIP_WIN_SIGN=1 electron-builder --dir"
   },
   "dependencies": {
     "@xenova/transformers": "^2.17.2",
@@ -83,6 +86,7 @@
       "renderer/dist/**/*",
       "art/**",
       "!art/Life Forms Icon/**",
+      "music/**",
       "package.json"
     ],
     "asarUnpack": [
@@ -91,7 +95,9 @@
     ],
     "win": {
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
+      "sign": "./build/azure-sign.cjs",
+      "publisherName": "Brennen Kennedy",
       "executableName": "tmixw",
       "target": [
         {
@@ -120,6 +126,7 @@
       "category": "public.app-category.role-playing-games",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "notarize": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
@@ -162,7 +169,7 @@
       ]
     },
     "deb": {
-      "maintainer": "tmíxʷ project <noreply@tmixw.local>"
+      "maintainer": "tmíxʷ project <brennen.kennedy@gmail.com>"
     },
     "extraResources": [
       {

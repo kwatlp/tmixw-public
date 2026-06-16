@@ -15,6 +15,7 @@ import path from "node:path";
 import { getPackageRoot, getWritableCoreDir } from "./app_paths.js";
 import { genEntryId } from "./codex.js";
 import { defaultWorldState, makeSessionBeat } from "./world_state.js";
+import { validateCreationSpec } from "./character/validate.js";
 
 /** World-local copy of the template's GM-only bestiary (narrator reference, never player-facing). */
 export const GM_BESTIARY_FILENAME = "gm_bestiary.json";
@@ -63,8 +64,13 @@ export function validateManifest(json) {
   if (m.gm != null) {
     if (typeof m.gm !== "object" || Array.isArray(m.gm)) {
       errors.push("gm must be an object");
-    } else if (m.gm.bestiaryFile != null && typeof m.gm.bestiaryFile !== "string") {
-      errors.push("gm.bestiaryFile must be a string");
+    } else {
+      if (m.gm.bestiaryFile != null && typeof m.gm.bestiaryFile !== "string") {
+        errors.push("gm.bestiaryFile must be a string");
+      }
+      if (m.gm.rulesFile != null && typeof m.gm.rulesFile !== "string") {
+        errors.push("gm.rulesFile must be a string");
+      }
     }
   }
 
@@ -107,8 +113,23 @@ export function validateManifest(json) {
     arrayOf("bestiary", (x) => (str(x, "name") ? null : "missing name"), "bestiary entry needs a name");
   }
 
-  if (m.onboarding != null && (typeof m.onboarding !== "object" || Array.isArray(m.onboarding))) {
-    errors.push("onboarding must be an object");
+  if (m.onboarding != null) {
+    if (typeof m.onboarding !== "object" || Array.isArray(m.onboarding)) {
+      errors.push("onboarding must be an object");
+    } else {
+      if (
+        m.onboarding.characterCreationFile != null &&
+        typeof m.onboarding.characterCreationFile !== "string"
+      ) {
+        errors.push("onboarding.characterCreationFile must be a string");
+      }
+      if (m.onboarding.mode != null && !["app-forge", "narrator-forge"].includes(m.onboarding.mode)) {
+        errors.push('onboarding.mode must be "app-forge" or "narrator-forge"');
+      }
+      if (m.onboarding.openingHint != null && typeof m.onboarding.openingHint !== "string") {
+        errors.push("onboarding.openingHint must be a string");
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -119,7 +140,7 @@ export function validateManifest(json) {
  * template folder (templates are third-party-authorable data).
  * @returns {string} absolute path
  */
-function resolveTemplateFile(templateDir, relPath) {
+export function resolveTemplateFile(templateDir, relPath) {
   const abs = path.resolve(templateDir, String(relPath ?? ""));
   const root = path.resolve(templateDir) + path.sep;
   if (!abs.startsWith(root)) {
@@ -129,6 +150,31 @@ function resolveTemplateFile(templateDir, relPath) {
     throw new Error(`[story_templates] referenced file missing: ${relPath}`);
   }
   return abs;
+}
+
+/**
+ * Load + validate a template's optional character-creation spec (design doc
+ * 01). Non-fatal: any problem (no reference, escape, missing file, bad JSON,
+ * failed validation) returns null with a warning. The renderer-facing loader
+ * lives in core/character/spec.js; this is discovery's warn-and-degrade path.
+ * @returns {object | null}
+ */
+function loadCreationSpecFromDir(dir, manifest, label) {
+  const rel = manifest?.onboarding?.characterCreationFile;
+  if (typeof rel !== "string" || !rel.trim()) return null;
+  let spec;
+  try {
+    spec = JSON.parse(fs.readFileSync(resolveTemplateFile(dir, rel), "utf8"));
+  } catch (err) {
+    console.warn(`[story_templates] ${label}: character creation spec not loadable — ignored (${err.message})`);
+    return null;
+  }
+  const v = validateCreationSpec(spec);
+  if (!v.ok) {
+    console.warn(`[story_templates] ${label}: character_creation.json failed validation — ignored:\n  - ${v.errors.join("\n  - ")}`);
+    return null;
+  }
+  return spec;
 }
 
 /**
@@ -167,6 +213,10 @@ export function discoverTemplates() {
         console.warn(`[story_templates] ${e.name} failed validation — skipped:\n  - ${v.errors.join("\n  - ")}`);
         continue;
       }
+      // Character-creation spec (design doc 01): optional. A broken spec drops
+      // to null with a warning — the template still loads and the narrator
+      // forge remains the fallback, so a bad spec never costs the whole world.
+      const creationSpec = loadCreationSpecFromDir(dir, manifest, e.name);
       byId.set(manifest.id, {
         id: manifest.id,
         name: manifest.name,
@@ -174,7 +224,8 @@ export function discoverTemplates() {
         genre: String(manifest.genre ?? ""),
         summary: String(manifest.summary ?? ""),
         dir,
-        manifest
+        manifest,
+        creationSpec
       });
     }
   }
@@ -282,8 +333,11 @@ export function applyTemplate(worldDir, template) {
     onboarding:
       ob && typeof ob === "object" && !Array.isArray(ob)
         ? {
-            runAtStart: String(ob.runAtStart ?? ""),
-            firstMessageHint: String(ob.firstMessageHint ?? "")
+            firstMessageHint: String(ob.firstMessageHint ?? ""),
+            // Handoff mode (design doc 01 §10). "app-forge" defers the opening
+            // to the in-app forge, then confirms the sheet using openingHint.
+            mode: ob.mode === "app-forge" ? "app-forge" : "narrator-forge",
+            openingHint: String(ob.openingHint ?? "")
           }
         : null
   };

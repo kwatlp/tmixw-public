@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import MessageFin from "./MessageFin.jsx";
 
 const TAB_LABELS = { story: "Story", cast: "Cast", world: "World" };
 
 export default function NarrativePanel({
   turns,
   thinking,
+  resolving,
   streaming,
   pending,
   chapterTitle,
-  onReveal
+  onReveal,
+  onSpeak
 }) {
   const busy = thinking || streaming;
   const bottomRef = useRef(null);
@@ -60,10 +63,18 @@ export default function NarrativePanel({
                 You — {row.user}
               </p>
             ) : null}
-            {thinking && i === turns.length - 1 && !row.narrative ? (
+            {/* Roll line sits above the prose (design doc 02 §6.2). */}
+            <MechanicsSections sections={row.sections} kinds={["roll"]} />
+            {(resolving || thinking) && i === turns.length - 1 && !row.narrative ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--focus)", fontFamily: "var(--sans)", fontSize: "0.9em" }}>
                 <span className="pulse-dot" style={{ background: "var(--focus)" }} />
-                <span>Thinking…</span>
+                <span>
+                  {resolving && !thinking
+                    ? "Resolving…"
+                    : row.sections?.length
+                      ? "Narrating…"
+                      : "Thinking…"}
+                </span>
               </div>
             ) : null}
             {row.narrative ? (
@@ -74,6 +85,8 @@ export default function NarrativePanel({
                 {row.narrative}
               </p>
             ) : null}
+            {/* Combat / enemy / status / loot blocks sit under the prose. */}
+            <MechanicsSections sections={row.sections} kinds={["combat", "enemies", "loot", "status"]} />
             {row.markers?.length ? (
               <div style={{ marginTop: 8 }}>
                 {row.markers.map((m, j) => (
@@ -87,6 +100,28 @@ export default function NarrativePanel({
                     ◆ {m.name} added to {TAB_LABELS[m.tab] ?? m.tab} — view
                   </button>
                 ))}
+              </div>
+            ) : null}
+            {/* Completion indicator (doc 03) + read-aloud (doc 05): bottom-right. */}
+            {row.narrative ? (
+              <div className="msg-fin-row">
+                {onSpeak ? (
+                  <button
+                    type="button"
+                    className="msg-readaloud"
+                    title="Read this aloud"
+                    aria-label="Read this message aloud"
+                    onClick={() => onSpeak(row.narrative)}
+                  >
+                    🔊
+                  </button>
+                ) : null}
+                <MessageFin
+                  meta={row.meta}
+                  streaming={streaming && i === lastNarrativeIdx}
+                  busy={busy}
+                  isLast={i === lastNarrativeIdx}
+                />
               </div>
             ) : null}
             {i === lastNarrativeIdx && row.narrative ? (
@@ -103,6 +138,160 @@ export default function NarrativePanel({
       </div>
       <LoreCorrection />
     </div>
+  );
+}
+
+/**
+ * App-rendered mechanical blocks (design doc 02 §6.2): the engine's numbers,
+ * composited with the model's prose. Always correct because they come from the
+ * ResolutionResult, never from parsing the narration. `kinds` filters which
+ * section types render here (roll above the prose, combat/status/loot below).
+ * Each type gets a dedicated layout (Phase 5) so a fight reads as a fight.
+ */
+function MechanicsSections({ sections, kinds }) {
+  const list = (Array.isArray(sections) ? sections : []).filter((s) => kinds.includes(s?.type));
+  if (list.length === 0) return null;
+  return (
+    <div className="mech-stack">
+      {list.map((s, i) => (
+        <MechSection key={i} section={s} />
+      ))}
+    </div>
+  );
+}
+
+function MechSection({ section: s }) {
+  switch (s?.type) {
+    case "status":
+      return <StatusSection s={s} />;
+    case "enemies":
+      return <EnemiesSection s={s} />;
+    case "combat":
+      return <CombatSection s={s} />;
+    case "roll":
+      return <RollSection s={s} />;
+    default:
+      return <LinesSection s={s} />;
+  }
+}
+
+const SectionShell = ({ title, type, className = "", children }) => (
+  <div className={`mech-section ${className}`}>
+    <span className="mech-section-title">⟦ {title || type} ⟧</span>
+    {children}
+  </div>
+);
+
+/** % full for a `cur/max` pair, clamped to [0, 100]. */
+const pctFull = (cur, max) => {
+  const m = Number(max);
+  if (!Number.isFinite(m) || m <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((Number(cur) / m) * 100)));
+};
+
+/** Cue + tint per engine-reported roll outcome (no prose parsing — doc 02 §6.2). */
+const OUTCOME_CUE = {
+  crit: { mark: "✦", cls: "crit" },
+  success: { mark: "✓", cls: "hit" },
+  fail: { mark: "✗", cls: "miss" }
+};
+
+/** roll: check/attack line(s), tinted + cued by the engine's `outcome` field. */
+function RollSection({ s }) {
+  const lines = s.lines ?? [];
+  const cue = OUTCOME_CUE[s.outcome];
+  return (
+    <SectionShell title={s.title} type="Roll" className="mech-roll">
+      <span className="mech-lines">
+        {lines.map((ln, i) => (
+          <span key={i} className={`mech-roll-line${cue ? ` ${cue.cls}` : ""}`}>
+            {ln}
+            {cue ? ` ${cue.mark}` : ""}
+          </span>
+        ))}
+      </span>
+    </SectionShell>
+  );
+}
+
+/** combat: the round's blow-by-blow; tone (deal/take/miss) comes from the engine. */
+function CombatSection({ s }) {
+  const events = s.events ?? [];
+  if (events.length === 0) return null;
+  return (
+    <SectionShell title={s.title} type="Round" className="mech-combat">
+      <ul className="mech-combat-list">
+        {events.map((e, i) => (
+          <li key={i} className={`mech-combat-line ${e.tone ?? "miss"}${e.slain ? " slain" : ""}`}>
+            {e.text}
+          </li>
+        ))}
+      </ul>
+    </SectionShell>
+  );
+}
+
+/** enemies: one row per foe with a vitality bar (engine-supplied fields). */
+function EnemiesSection({ s }) {
+  const rows = s.enemies ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <SectionShell title={s.title} type="Enemies" className="mech-enemies">
+      <div className="mech-enemy-rows">
+        {rows.map((r, i) => (
+          <div key={i} className={`mech-enemy${r.slain ? " slain" : ""}`}>
+            <span className="mech-enemy-name">{r.name}</span>
+            {r.max != null ? (
+              <span className="mech-bar" title={`${r.cur}/${r.max}`}>
+                <span className="mech-bar-fill foe" style={{ width: `${pctFull(r.cur, r.max)}%` }} />
+              </span>
+            ) : null}
+            <span className="mech-enemy-vit">{r.slain ? "slain" : `${r.cur}/${r.max}`}</span>
+          </div>
+        ))}
+      </div>
+    </SectionShell>
+  );
+}
+
+/** Bar tint per status pool (palette-consistent: vit=oxblood, others=gold). */
+const STAT_TONE = { VIT: "vit", STA: "sta", AET: "aet", XP: "xp" };
+
+/** status: the compact post-action snapshot; cur/max pools get a slim bar. */
+function StatusSection({ s }) {
+  const entries = Object.entries(s.snapshot ?? {});
+  if (entries.length === 0) return null;
+  return (
+    <SectionShell title={s.title} type="Status" className="mech-status-section">
+      <span className="mech-status">
+        {entries.map(([k, v]) => {
+          const m = /^(\d+)\/(\d+)$/.exec(String(v));
+          return (
+            <span key={k} className="mech-stat">
+              <span className="mech-stat-key">{k}</span>
+              {m ? (
+                <span className="mech-bar mech-bar-sm" title={String(v)}>
+                  <span
+                    className={`mech-bar-fill ${STAT_TONE[k] || "xp"}`}
+                    style={{ width: `${pctFull(m[1], m[2])}%` }}
+                  />
+                </span>
+              ) : null}
+              <span className="mech-stat-val">{v}</span>
+            </span>
+          );
+        })}
+      </span>
+    </SectionShell>
+  );
+}
+
+/** Fallback (loot, unknown): the lines joined inline. */
+function LinesSection({ s }) {
+  return (
+    <SectionShell title={s.title} type={s.type}>
+      <span className="mech-lines">{(s.lines ?? []).join("  ·  ")}</span>
+    </SectionShell>
   );
 }
 

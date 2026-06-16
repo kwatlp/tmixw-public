@@ -12,7 +12,18 @@ import { ensureCodex, genEntryId, pruneCodex } from "./codex.js";
 
 export { getWorldStatePath };
 
-export const WORLD_STATE_SCHEMA_VERSION = 5;
+export const WORLD_STATE_SCHEMA_VERSION = 6;
+
+/**
+ * Player-character fields the interaction engine (design doc 02) owns. On
+ * app-forged sheets the extractor must not write these — the engine is the
+ * single source of truth for mechanics. Soft fields (look, past, pronouns, …)
+ * stay extractor-writable.
+ */
+export const ENGINE_OWNED_PC_KEYS = new Set([
+  "stats", "statsBase", "derived", "derivedFormulas", "resources",
+  "coin", "xp", "rank", "rankLabel", "inventory", "conditions", "skills"
+]);
 
 export function defaultWorldState() {
   const ws = {
@@ -34,7 +45,13 @@ export function defaultWorldState() {
     bestiary: [],
     correction_history: [],
     /** Where the player currently is (v0.7.0 D4) — set by the extractor, drives the bg gallery. */
-    current_location: ""
+    current_location: "",
+    /**
+     * Active combat/interaction encounter (schema v6, design doc 02). Owned by
+     * the deterministic engine, never the extractor. `{ active: false }` = no
+     * fight; a live encounter carries round/canvas/enemies (see the design doc).
+     */
+    encounter: { active: false }
   };
   ensureCodex(ws);
   return ws;
@@ -164,6 +181,15 @@ export function migrateWorldState(parsed) {
       }
     }
     parsed.schemaVersion = 5;
+    changed = true;
+  }
+  if (parsed.schemaVersion < 6) {
+    // v6 (interaction engine, design doc 02): add the engine-owned encounter
+    // section. Tiny and additive — no existing data is touched.
+    if (!parsed.encounter || typeof parsed.encounter !== "object" || Array.isArray(parsed.encounter)) {
+      parsed.encounter = { active: false };
+    }
+    parsed.schemaVersion = 6;
     changed = true;
   }
   return changed;
@@ -439,6 +465,9 @@ export function loadWorldState() {
     if (!Array.isArray(parsed.bestiary)) parsed.bestiary = [];
     if (!Array.isArray(parsed.correction_history)) parsed.correction_history = [];
     if (typeof parsed.current_location !== "string") parsed.current_location = "";
+    if (!parsed.encounter || typeof parsed.encounter !== "object" || Array.isArray(parsed.encounter)) {
+      parsed.encounter = { active: false };
+    }
     if (typeof parsed.schemaVersion !== "number") parsed.schemaVersion = 1;
     const fromVersion = parsed.schemaVersion;
     if (fromVersion < WORLD_STATE_SCHEMA_VERSION) {
@@ -644,8 +673,13 @@ export function applyExtractorDiff(ws, diff, opts = {}) {
         .map((n) => String(n?.name ?? "").trim().toLowerCase())
         .filter(Boolean)
     );
+    // Interaction engine (design doc 02 §9): on app-forged sheets the engine is
+    // the sole writer of mechanical fields. Drop them from the extractor's diff
+    // so prose-parsed numbers never double-write or fight the engine.
+    const engineOwned = ws.character?.createdBy === "app-forge" ? ENGINE_OWNED_PC_KEYS : null;
     for (const [key, val] of Object.entries(pc)) {
       if (key === "__proto__" || key === "constructor") continue;
+      if (engineOwned && engineOwned.has(key)) continue;
       // Guard: NPC data must never land on the player character, even if the
       // model misroutes it. Dropped, not rerouted — the NPC list stays authoritative.
       if (npcNames.has(key.trim().toLowerCase())) continue;

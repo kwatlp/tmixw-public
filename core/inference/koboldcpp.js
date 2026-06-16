@@ -11,7 +11,8 @@ import {
   postJsonWithRetry,
   sseDataEvents,
   findStopCut,
-  estimateTokensFallback
+  estimateTokensFallback,
+  normalizeFinishReason
 } from "./index.js";
 
 function buildBody(prompt, g) {
@@ -46,7 +47,8 @@ export function createKoboldCppAdapter(cfg) {
     return String(out).trim();
   }
 
-  async function generateStream(prompt, gen, onText) {
+  async function generateStream(prompt, gen, onText, onDone) {
+    const done = typeof onDone === "function" ? onDone : () => {};
     const res = await fetch(`${base}/api/extra/generate/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,12 +72,16 @@ export function createKoboldCppAdapter(cfg) {
         const cutAt = findStopCut(text, stops);
         if (cutAt >= 0) {
           text = text.slice(0, cutAt);
+          done({ finishReason: "stopSequence" });
           abort().catch(() => {});
           break;
         }
         onText(text);
       }
-      if (evt.finish_reason != null) break;
+      if (evt.finish_reason != null) {
+        done({ finishReason: normalizeFinishReason(evt.finish_reason) });
+        break;
+      }
     }
     return text.trim();
   }

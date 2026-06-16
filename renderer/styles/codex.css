@@ -756,3 +756,125 @@
   letter-spacing: 0.14em;
   color: var(--muted);
 }
+
+/* Read-only CHARACTER sheet (design doc 01 Phase 5) */
+.char-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--sans);
+  color: var(--bone);
+}
+.char-sheet-head {
+  border-bottom: 1px solid var(--hair);
+  padding-bottom: 10px;
+}
+.char-sheet-name {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  color: var(--bone);
+}
+.char-sheet-sub {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.char-sheet-rank {
+  margin: 4px 0 0;
+  color: var(--gold);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+.char-sheet-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.char-sheet-h3 {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.char-sheet-line {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.char-sheet-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.char-sheet-block-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.char-sheet-block-body {
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+.char-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.char-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.char-stat-name {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.char-stat-val {
+  font-size: 1.1rem;
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}
+.char-derived {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.char-derived-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.char-derived-key {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.char-derived-val {
+  font-size: 1rem;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.char-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.char-pill {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  font-size: 0.78rem;
+}

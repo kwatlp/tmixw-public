@@ -44,7 +44,8 @@
       "description": "GM-only reference data. The loader exposes this to the narrator as reference context but NEVER writes it into player-facing world_state.",
       "additionalProperties": true,
       "properties": {
-        "bestiaryFile": { "type": "string", "description": "Path to a GM-only bestiary JSON (full stat blocks). Reference only." },
+        "bestiaryFile": { "type": "string", "description": "Path to a GM-only bestiary JSON (full stat blocks). Reference only; also the interaction engine's enemy stat source for combat." },
+        "rulesFile": { "type": "string", "description": "Path to the deterministic rules tables for the interaction engine (validates against rules.schema.json). Optional — omit to use the engine's DEFAULT_RULES; a partial file merges over them. See docs/design/02-interaction-engine.md." },
         "notes": { "type": "string" }
       }
     },
@@ -137,7 +138,6 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "runAtStart": { "type": "string", "description": "Signal to the narrator/loader for the opening flow, e.g. 'character-forge'." },
         "firstMessageHint": { "type": "string" },
         "boardSize": { "type": "integer" },
         "startingRank": { "type": "string" }

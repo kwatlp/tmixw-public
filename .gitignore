@@ -11,9 +11,6 @@ core/config.json
 /core/world_state.json
 /core/world_state.backup-*.json
 /core/events.jsonl
-# Multi-world store (v0.9.0): per-world dirs + registry, dev layout
-/core/worlds/
-/core/worlds.json
 
 # UI smoke harness screenshots (regenerable; see scripts/ui_smoke*.mjs)
 scripts/.shots/

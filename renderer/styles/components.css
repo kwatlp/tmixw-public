@@ -218,3 +218,199 @@
 .response-controls:focus-within {
   opacity: 1;
 }
+
+/* App-rendered mechanical blocks (design doc 02 §6.2) — engine numbers, never
+   the model's. Styled to read as a labeled strip beside the prose. */
+.mech-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.mech-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--hair);
+  border-left: 2px solid var(--gold-soft, var(--gold));
+  border-radius: 6px;
+  background: var(--panel-recess, rgba(0, 0, 0, 0.2));
+  font-family: var(--sans);
+  font-size: 0.82rem;
+}
+.mech-section-title {
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.mech-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--bone);
+}
+.mech-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.mech-stat-key {
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+}
+.mech-lines {
+  color: var(--bone);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+.mech-stat-val {
+  font-variant-numeric: tabular-nums;
+}
+
+/* roll — each verdict line tinted + cued (Phase 5 combat-section polish). */
+.mech-roll-line { color: var(--bone); }
+.mech-roll-line.hit  { color: var(--gold); }
+.mech-roll-line.crit { color: var(--gold); font-weight: 600; }
+.mech-roll-line.miss { color: var(--muted); }
+
+/* combat round — vertical blow-by-blow, dealt vs taken tinted. */
+.mech-combat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-basis: 100%;
+}
+.mech-combat-line {
+  font-variant-numeric: tabular-nums;
+  color: var(--bone-dim);
+}
+.mech-combat-line.deal  { color: var(--gold); }
+.mech-combat-line.slain { font-weight: 600; }
+.mech-combat-line.take  { color: var(--oxblood); }
+.mech-combat-line.miss  { color: var(--muted); }
+
+/* enemies — one row per foe with a vitality bar; slain dim out. */
+.mech-enemy-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-basis: 100%;
+}
+.mech-enemy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}
+.mech-enemy.slain {
+  color: var(--muted);
+  opacity: 0.6;
+}
+.mech-enemy.slain .mech-enemy-name {
+  text-decoration: line-through;
+}
+.mech-enemy-name { flex: 0 0 auto; min-width: 7ch; }
+.mech-enemy-vit { flex: 0 0 auto; font-size: 0.74rem; color: var(--muted); }
+
+/* slim vitality / resource bars shared by enemies + the status snapshot. */
+.mech-bar {
+  flex: 1 1 60px;
+  max-width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel-recess, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+.mech-bar-sm {
+  flex: 0 0 36px;
+  max-width: 36px;
+  height: 5px;
+  margin: 0 2px;
+}
+.mech-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 200ms ease;
+}
+.mech-bar-fill.foe { background: var(--oxblood); }
+.mech-bar-fill.vit { background: var(--oxblood); }
+.mech-bar-fill.sta { background: var(--bone-dim); }
+.mech-bar-fill.aet { background: var(--gold); }
+.mech-bar-fill.xp  { background: var(--gold); }
+
+/* Message-fin completion indicator (design doc 03) — whisper-quiet when the
+   reply ended naturally, a warmer nudge toward Continue when it was cut off. */
+.msg-fin-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;         /* a quiet footer line under the prose / sections */
+  min-height: 14px;
+}
+/* Per-message "read aloud" (doc 05) — quiet until hovered. */
+.msg-readaloud {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  opacity: 0.4;
+  filter: grayscale(0.4);
+  transition: opacity 140ms ease, filter 140ms ease;
+}
+.msg-readaloud:hover { opacity: 0.95; filter: none; }
+.msg-fin {
+  font-family: var(--serif);
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  letter-spacing: 0.02em;
+}
+.msg-fin-streaming {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.7;
+}
+.msg-fin-complete {
+  opacity: 0.5;
+  transition: color 140ms ease, opacity 140ms ease;
+}
+.msg-fin-complete:hover { color: var(--gold); opacity: 0.9; }
+/* Length-tier flavor: a longer (still complete) reply gets a weightier glyph. */
+.msg-fin-complete.tier-1 { font-size: 0.72rem; opacity: 0.4; }
+.msg-fin-complete.tier-2 { font-size: 0.9rem; }
+.msg-fin-complete.tier-3 { font-size: 1.1rem; opacity: 0.6; }
+.msg-fin-complete.tier-4 { font-size: 1.3rem; opacity: 0.75; }
+.msg-fin-aborted {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.msg-fin-truncated {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--gold);
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 140ms ease, text-decoration-color 140ms ease;
+}
+.msg-fin-truncated:hover:not(:disabled) { opacity: 1; text-decoration: underline; }
+.msg-fin-truncated:disabled { cursor: default; color: var(--muted); opacity: 0.55; }

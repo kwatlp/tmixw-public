@@ -3,6 +3,7 @@ import { useCodex } from "./CodexProvider.jsx";
 import { CODEX_TABS } from "./buildCodexView.js";
 import GroupSection from "./GroupSection.jsx";
 import NowMarker from "./NowMarker.jsx";
+import CharacterSheet from "./CharacterSheet.jsx";
 
 /**
  * The Codex: three player-lens tabs over one record-card component.
@@ -28,6 +29,14 @@ export default function CodexPanel({ onOpenWorlds }) {
   } = useCodex();
   const [newGroupHot, setNewGroupHot] = useState(false);
 
+  // The CHARACTER tab is a read-only sheet, shown only for app-forged worlds
+  // (freeform/blank characters live in Cast → You). Hide it otherwise; if it was
+  // the active tab when the world changed, fall back to Story for rendering.
+  const hasSheet = view?.characterSheet?.createdBy === "app-forge";
+  const tabs = CODEX_TABS.filter((t) => t.id !== "character" || hasSheet);
+  const effectiveTab = activeTab === "character" && !hasSheet ? "story" : activeTab;
+  const onCharacterTab = effectiveTab === "character";
+
   if (panelCollapsed) {
     return (
       <div className="left-panel-wrap collapsed">
@@ -43,11 +52,11 @@ export default function CodexPanel({ onOpenWorlds }) {
     );
   }
 
-  let groups = view ? view[activeTab] : null;
+  let groups = view && !onCharacterTab ? view[effectiveTab] : null;
   // Live filter: non-matching entries hidden, empty groups hidden entirely.
   // Collapse states are untouched — clearing the query restores them as-is.
   if (groups && search) {
-    const hits = search.byTab[activeTab];
+    const hits = search.byTab[effectiveTab];
     groups = groups
       .map((g) => ({ ...g, entries: g.entries.filter((e) => hits.has(e.id)) }))
       .filter((g) => g.entries.length > 0);
@@ -57,11 +66,11 @@ export default function CodexPanel({ onOpenWorlds }) {
     <div className="left-panel-wrap">
       <div className="panel flush codex-panel">
         <nav className="codex-tabs">
-          {CODEX_TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
-              className={activeTab === t.id ? "codex-tab active" : "codex-tab"}
+              className={effectiveTab === t.id ? "codex-tab active" : "codex-tab"}
               onClick={() => setActiveTab(t.id)}
             >
               {/* Cross-tab hint: match counts while a query is active. */}
@@ -104,7 +113,9 @@ export default function CodexPanel({ onOpenWorlds }) {
         </div>
 
         <div className="codex-body">
-          {!groups ? (
+          {onCharacterTab ? (
+            <CharacterSheet character={view?.characterSheet ?? {}} />
+          ) : !groups ? (
             <p style={{ color: "var(--muted)", fontFamily: "var(--sans)", fontSize: "0.82rem" }}>
               Loading…
             </p>
@@ -131,7 +142,7 @@ export default function CodexPanel({ onOpenWorlds }) {
             ))
           )}
         </div>
-        {searchActive ? null : (
+        {searchActive || onCharacterTab ? null : (
         <button
           type="button"
           className={newGroupHot ? "cdx-new-group drop-hover" : "cdx-new-group"}

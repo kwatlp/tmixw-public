@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 
+// Soft-target sizes (design doc 06): each is what the narrator aims for, not a
+// hard cap — it may resolve and yield early. Titles mirror core/length_presets.js.
 const LENGTH_PILLS = [
-  { id: "brief", label: "Brief", title: "Brief — 1-2 tight paragraphs" },
-  { id: "standard", label: "Std", title: "Standard" },
-  { id: "rich", label: "Rich", title: "Rich — detailed, atmospheric" },
-  { id: "sprawling", label: "Sprawl", title: "Sprawling — expansive scenes" }
+  { id: "brief", label: "Brief", title: "Brief — aim for 1-2 tight paragraphs" },
+  { id: "standard", label: "Std", title: "Standard — aim for 2-3 paragraphs" },
+  { id: "rich", label: "Rich", title: "Rich — aim for 3-4 detailed paragraphs" },
+  { id: "sprawling", label: "Sprawl", title: "Sprawling — aim for an expansive scene; stops when the beat resolves" }
 ];
 
 // Mirror of core/style_presets.js ids/labels (directives live in core).

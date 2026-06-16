@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ContextDebugPanel from "./settings/ContextDebugPanel.jsx";
+import { createWebSpeechSpeaker } from "../tts/speakers/webSpeech.js";
 import "../styles/settings.css";
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: "lorebook", label: "Lorebook" },
   { id: "input", label: "Input" },
   { id: "atmosphere", label: "Atmosphere" },
+  { id: "tts", label: "Speech" },
   { id: "agent", label: "Player Agent" },
   { id: "worldData", label: "World Data" },
   { id: "debug", label: "Debug" },
@@ -323,13 +325,17 @@ function BackendTab({ draft, setField }) {
   );
 }
 
-// Mirror of core/length_presets.js max_length values (renderer cannot import core ESM).
+// Mirror of core/length_presets.js (soft-target model, design doc 06; renderer
+// cannot import core ESM). `target` is the size the narration aims for; the
+// backend ceiling = target × headroom (a backstop, rarely hit), shown for info.
+const LENGTH_HEADROOM = 1.6;
 const LENGTH_PRESET_INFO = {
-  brief: { label: "Brief", max_length: 120 },
-  standard: { label: "Standard", max_length: 220 },
-  rich: { label: "Rich", max_length: 400 },
-  sprawling: { label: "Sprawling", max_length: 700 }
+  brief: { label: "Brief", target: 120 },
+  standard: { label: "Standard", target: 220 },
+  rich: { label: "Rich", target: 400 },
+  sprawling: { label: "Sprawling", target: 700 }
 };
+const ceilingFor = (target) => Math.round(target * LENGTH_HEADROOM);
 
 // Mirror of core/style_presets.js labels (ids must match; directives live in core).
 const STYLE_OPTIONS = {
@@ -432,13 +438,13 @@ function GenParamsTab({ draft, setField, prefix, onResetPrompt, promptLabel, len
       <SliderField label="Temperature" value={params.temperature} onChange={(v) => setParam("temperature", v)} min={0} max={2} step={0.05} />
       {presetInfo ? (
         <div className="settings-field">
-          <label className="settings-field-label">Max length</label>
+          <label className="settings-field-label">Length target</label>
           <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-            {presetInfo.max_length} (set by the {presetInfo.label} preset)
+            aims for ~{presetInfo.target} tokens, ceiling {ceilingFor(presetInfo.target)} (the {presetInfo.label} preset — a soft target the narrator may stop short of, not a fixed cap)
           </span>
         </div>
       ) : (
-        <SliderField label="Max length" value={params.max_length} onChange={(v) => setParam("max_length", v)} min={50} max={1024} step={10} />
+        <SliderField label="Max length (ceiling)" value={params.max_length} onChange={(v) => setParam("max_length", v)} min={50} max={1536} step={10} />
       )}
       <SliderField label="Top-p" value={params.top_p} onChange={(v) => setParam("top_p", v)} min={0} max={1} step={0.05} />
       <NumberField label="Top-k" value={params.top_k} onChange={(v) => setParam("top_k", v)} min={0} max={200} />
@@ -483,6 +489,8 @@ function AtmosphereTab({ draft, setField }) {
   }, []);
 
   const setUi = (key, val) => setField("ui", { ...ui, [key]: val });
+  const music = ui.music ?? { enabled: false, volume: 0.4, loop: true };
+  const setMusic = (key, val) => setUi("music", { ...music, [key]: val });
   const setLocationBg = (name, p) => {
     const next = { ...gallery };
     const key = name.toLowerCase();
@@ -517,6 +525,44 @@ function AtmosphereTab({ draft, setField }) {
         onChange={(p) => setUi("backgroundImage", p)}
         extensions={["png", "jpg", "jpeg"]}
       />
+
+      {/* Background music (design doc 04) — off by default. */}
+      <ToggleField
+        label="Play background music"
+        value={music.enabled === true}
+        onChange={(v) => setMusic("enabled", v)}
+      />
+      <FilePickerField
+        label="Music track"
+        value={ui.backgroundMusic ?? ""}
+        onChange={(p) => setUi("backgroundMusic", p)}
+        extensions={["mp3", "ogg", "wav", "flac", "m4a", "aac"]}
+      />
+      {(ui.backgroundMusic ?? "") ? (
+        <div className="settings-field">
+          <button
+            type="button"
+            className="settings-link-btn"
+            onClick={() => setUi("backgroundMusic", "")}
+          >
+            Clear track (silence)
+          </button>
+        </div>
+      ) : null}
+      <SliderField
+        label="Music volume"
+        value={Math.round((music.volume ?? 0.4) * 100)}
+        min={0}
+        max={100}
+        step={1}
+        onChange={(v) => setMusic("volume", v / 100)}
+      />
+      <ToggleField
+        label="Loop music"
+        value={music.loop !== false}
+        onChange={(v) => setMusic("loop", v)}
+      />
+
       <TextField
         label="Image generation endpoint (A1111/Forge, optional — blank = off)"
         value={imagegen.endpoint ?? ""}
@@ -592,6 +638,85 @@ function AtmosphereTab({ draft, setField }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Text-to-speech (design doc 05) — Web Speech MVP; piper is a later backend. */
+function TtsTab({ draft, setField }) {
+  const tts = draft.tts ?? {};
+  const setTts = (key, val) => setField("tts", { ...tts, [key]: val });
+  // Go through the speaker abstraction (not window.speechSynthesis directly) so
+  // a future backend (piper) surfaces its own voices/availability here too.
+  const speaker = useMemo(() => createWebSpeechSpeaker(), []);
+  const supported = speaker.supported;
+  const [voices, setVoices] = useState(() => speaker.listVoices());
+
+  useEffect(() => {
+    setVoices(speaker.listVoices());
+    return speaker.onVoicesChanged?.(() => setVoices(speaker.listVoices()));
+  }, [speaker]);
+
+  const enabled = tts.enabled === true;
+  const hasNetworkVoice = voices.some((v) => v.localService === false);
+
+  return (
+    <div className="settings-tab-body">
+      {!supported && (
+        <div style={{ fontSize: "0.78rem", color: "var(--oxblood, #a33)", marginBottom: 10 }}>
+          This runtime has no speech synthesis available — text-to-speech can't run here.
+        </div>
+      )}
+      <ToggleField
+        label="Read narration aloud (text-to-speech)"
+        value={enabled}
+        onChange={(v) => setTts("enabled", v)}
+      />
+      <ToggleField
+        label="Auto-speak narrator turns"
+        value={tts.autoSpeak !== false}
+        onChange={(v) => setTts("autoSpeak", v)}
+      />
+      <div className="settings-field">
+        <label className="settings-field-label">Voice</label>
+        <select
+          className="settings-select"
+          value={tts.voice ?? ""}
+          onChange={(e) => setTts("voice", e.target.value)}
+        >
+          <option value="">Default voice</option>
+          {voices.map((v) => (
+            <option key={v.voiceURI} value={v.voiceURI}>
+              {v.name}
+              {v.lang ? ` · ${v.lang}` : ""}
+              {v.localService === false ? " · network" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      <SliderField
+        label="Rate"
+        value={tts.rate ?? 1}
+        min={0.5}
+        max={2}
+        step={0.1}
+        onChange={(v) => setTts("rate", v)}
+      />
+      <SliderField
+        label="Volume"
+        value={Math.round((tts.volume ?? 0.9) * 100)}
+        min={0}
+        max={100}
+        step={1}
+        onChange={(v) => setTts("volume", v / 100)}
+      />
+      <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 8 }}>
+        Voices are provided by your operating system.
+        {hasNetworkVoice
+          ? " Voices marked “network” may send text to a cloud service — pick a non-network voice for fully offline, local-first speech."
+          : ""}{" "}
+        Speech stops the instant you press to talk or send a message.
+      </div>
     </div>
   );
 }
@@ -1178,6 +1303,7 @@ export default function Settings({ onClose }) {
           {tab === "lorebook" && <LorebookTab draft={draft} setField={setField} />}
           {tab === "input" && <InputTab draft={draft} setField={setField} />}
           {tab === "atmosphere" && <AtmosphereTab draft={draft} setField={setField} />}
+          {tab === "tts" && <TtsTab draft={draft} setField={setField} />}
           {tab === "agent" && <AgentTab draft={draft} setField={setField} />}
           {tab === "worldData" && <WorldDataTab />}
           {tab === "debug" && <ContextDebugPanel />}

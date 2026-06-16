@@ -314,6 +314,12 @@ export function resolveKoboldModel(config) {
     const bundled = firstGgufInDir(modelsDir);
     if (bundled) return bundled;
   }
+
+  // A model the wizard downloaded in-app lands in userData/models; resolve it
+  // even if config.koboldModel was not persisted (parity with whisper).
+  const downloaded = firstGgufInDir(userDataModelsDir());
+  if (downloaded) return downloaded;
+
   return "";
 }
 

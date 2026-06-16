@@ -1,0 +1,269 @@
+/* Character Forge (design doc 01). Builds on the wizard's full-screen panel
+   vocabulary (wizard.css) + the shared tokens; only forge-specific controls
+   live here — option cards, point-buy steppers, the live derived strip. */
+
+/* The forge mounts as a modal layer ABOVE MainApp (wizard-root is only
+   position:relative), so it must cover the app and scroll on its own. */
+.forge-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow-y: auto;
+}
+
+.forge-panel {
+  max-width: 720px;
+  text-align: left;
+}
+
+.forge-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 16px 0 8px;
+}
+
+.forge-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.forge-input {
+  background: var(--field, var(--panel-recess, #1a1a1a));
+  border: 1px solid var(--hair, #333);
+  border-radius: 6px;
+  color: var(--bone, #e8e2d4);
+  font: inherit;
+  padding: 8px 10px;
+}
+.forge-input:focus {
+  outline: none;
+  border-color: var(--gold, #c8a04a);
+}
+.forge-textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+/* single-select option cards */
+.forge-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.forge-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--panel, #1c1c1c);
+  border: 1px solid var(--hair, #333);
+  border-radius: 8px;
+  color: var(--bone, #e8e2d4);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.forge-option:hover {
+  border-color: var(--gold-soft, #8a7030);
+}
+.forge-option.selected {
+  border-color: var(--gold, #c8a04a);
+  background: var(--gold-ghost, rgba(200, 160, 74, 0.1));
+}
+.forge-option-name {
+  font-weight: 600;
+}
+.forge-option-summary {
+  font-size: 0.85em;
+  color: var(--muted, #9a9485);
+}
+
+/* sub-pickers and chips (subtype / skill / stat-choice / multi-select) */
+.forge-subpicker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.forge-sublabel {
+  font-size: 0.85em;
+  color: var(--muted, #9a9485);
+}
+.forge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.forge-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hair, #333);
+  background: var(--panel, #1c1c1c);
+  color: var(--bone, #e8e2d4);
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.forge-chip:hover {
+  border-color: var(--gold-soft, #8a7030);
+}
+.forge-chip.selected {
+  border-color: var(--gold, #c8a04a);
+  background: var(--gold-ghost, rgba(200, 160, 74, 0.12));
+  color: var(--gold, #c8a04a);
+}
+
+/* point-buy */
+.forge-pointbuy-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.forge-pool {
+  font-size: 0.9em;
+  color: var(--muted, #9a9485);
+}
+.forge-pool.ok {
+  color: var(--gold, #c8a04a);
+}
+.forge-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.forge-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 1px solid var(--hair, #333);
+  border-radius: 6px;
+  background: var(--panel, #1c1c1c);
+}
+.forge-stat-name {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.forge-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.forge-stepper button {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--hair, #333);
+  background: var(--panel-recess, #141414);
+  color: var(--bone, #e8e2d4);
+  cursor: pointer;
+  font-size: 1.1em;
+  line-height: 1;
+}
+.forge-stepper button:hover {
+  border-color: var(--gold, #c8a04a);
+}
+.forge-stat-val {
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* live derived strip */
+.forge-derived {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--hair, #333);
+  border-radius: 8px;
+  background: var(--panel-recess, #141414);
+}
+.forge-derived-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.forge-derived-key {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #9a9485);
+}
+.forge-derived-val {
+  font-size: 1.2em;
+  color: var(--gold, #c8a04a);
+  font-variant-numeric: tabular-nums;
+}
+
+/* freeform grading */
+.forge-grade-row {
+  display: flex;
+  gap: 8px;
+}
+.forge-grade-card {
+  border: 1px solid var(--gold-soft, #8a7030);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--gold-ghost, rgba(200, 160, 74, 0.08));
+}
+.forge-grade-name {
+  font-weight: 600;
+  color: var(--gold, #c8a04a);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.forge-grade-tag {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #9a9485);
+  border: 1px solid var(--hair, #333);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.forge-grade-line {
+  margin: 6px 0 0;
+  font-size: 0.9em;
+}
+
+/* footer actions */
+.forge-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+}
+.forge-action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* review */
+.forge-review-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.forge-review-row {
+  display: flex;
+  gap: 12px;
+}
+.forge-review-key {
+  min-width: 120px;
+  color: var(--muted, #9a9485);
+}
+.forge-review-val {
+  color: var(--bone, #e8e2d4);
+}
+
+@media (max-width: 560px) {
+  .forge-options,
+  .forge-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

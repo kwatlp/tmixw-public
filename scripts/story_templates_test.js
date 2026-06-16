@@ -165,7 +165,6 @@ await check("applyTemplate: Solterra seed lands in a fresh world, ids stamped, b
   assert.equal(patch.narrator.promptMode, "override");
   assert.ok(patch.narrator.systemPrompt.length > 1000, "Guildblade manual should be the prompt");
   assert.equal(patch.narrator.config.lengthPreset, "brief");
-  assert.equal(patch.onboarding.runAtStart, "character-forge");
   assert.ok(patch.onboarding.firstMessageHint.includes("Character Forge"));
 });
 

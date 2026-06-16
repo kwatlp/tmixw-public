@@ -20,7 +20,7 @@
   },
   "expect": {
     "world_after": {
-      "schemaVersion": 5,
+      "schemaVersion": 6,
       "character": { "name": "Kael", "hp": "5" },
       "correction_history": [],
       "scenes": [],

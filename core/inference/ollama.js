@@ -7,7 +7,7 @@
  * 2026-06-12 — live verification is a 0.8.x item. Built against the
  * documented stable API.
  */
-import { postJsonWithRetry, findStopCut, estimateTokensFallback } from "./index.js";
+import { postJsonWithRetry, findStopCut, estimateTokensFallback, normalizeFinishReason } from "./index.js";
 
 function buildBody(model, prompt, g, stream) {
   return JSON.stringify({
@@ -56,7 +56,8 @@ export function createOllamaAdapter(cfg, fetchImpl = fetch) {
     return String(json?.response ?? "").trim();
   }
 
-  async function generateStream(prompt, gen, onText) {
+  async function generateStream(prompt, gen, onText, onDone) {
+    const done = typeof onDone === "function" ? onDone : () => {};
     requireModel();
     activeAbort = new AbortController();
     try {
@@ -92,16 +93,21 @@ export function createOllamaAdapter(cfg, fetchImpl = fetch) {
               const cutAt = findStopCut(text, stops);
               if (cutAt >= 0) {
                 text = text.slice(0, cutAt);
+                done({ finishReason: "stopSequence" });
                 activeAbort.abort(); // Ollama cancels on disconnect
                 break outer;
               }
               onText(text);
             }
-            if (evt.done === true) break outer;
+            if (evt.done === true) {
+              done({ finishReason: normalizeFinishReason(evt.done_reason) });
+              break outer;
+            }
           }
         }
       } catch (e) {
         if (!activeAbort.signal.aborted) throw e;
+        done({ finishReason: "aborted" });
       }
       return text.trim();
     } finally {
