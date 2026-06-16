@@ -4,8 +4,8 @@ Bundled, genre-flavored world starters. A template pre-populates a fresh world
 with its lore, locations, NPCs, an opening beat, and a narrator voice, so a new
 campaign begins already on-rails instead of from an empty `world_state.json`.
 
-This is the home of the **Story Templates / Genre Starters** feature described
-in [`docs/FEATURE_CREEP.md`](../docs/FEATURE_CREEP.md) §1. **Shipped in v0.9.0.**
+This is the home of the **Story Templates / Genre Starters** feature.
+**Shipped in v0.9.0.**
 The loader lives in [`core/story_templates.js`](../core/story_templates.js)
 (`discoverTemplates` / `validateManifest` / `applyTemplate` / `loadGmBestiary`);
 its prerequisites — composable prompts (v0.6.0) and multi-world / save slots
