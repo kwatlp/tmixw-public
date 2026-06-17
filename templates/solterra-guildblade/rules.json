@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "_doc": "Machine-readable twin of system_prompt.md §3–§4 / §7. The engine computes from this; the prose explains feel. See docs/design/02-interaction-engine.md.",
+  "_doc": "Machine-readable twin of system_prompt.md §3–§4 / §7. The engine computes from this; the prose explains feel. See internal-docs/design/02-interaction-engine.md.",
   "resolution": {
     "die": "d20",
     "dcByDifficulty": { "routine": 14, "tough": 18, "severe": 22, "heroic": 26 },

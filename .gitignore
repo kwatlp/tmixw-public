@@ -11,6 +11,9 @@ core/config.json
 /core/world_state.json
 /core/world_state.backup-*.json
 /core/events.jsonl
+# Multi-world store (v0.9.0): per-world dirs + registry, dev layout
+/core/worlds/
+/core/worlds.json
 
 # UI smoke harness screenshots (regenerable; see scripts/ui_smoke*.mjs)
 scripts/.shots/
@@ -41,3 +44,9 @@ docs/tmixw-0.1.0-win.zip
 .cursor/
 .claude/
 core/config.packaged.starter.json
+
+# Windows code-signing secrets + logs (SIGNING_HANDOFF §6). build/metadata.json
+# is safe to commit (no secrets); a service-principal secret never is.
+.env.trustedsigning
+electron-windows-sign.log
+AZURE_CLIENT_SECRET

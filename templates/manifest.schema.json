@@ -45,7 +45,7 @@
       "additionalProperties": true,
       "properties": {
         "bestiaryFile": { "type": "string", "description": "Path to a GM-only bestiary JSON (full stat blocks). Reference only; also the interaction engine's enemy stat source for combat." },
-        "rulesFile": { "type": "string", "description": "Path to the deterministic rules tables for the interaction engine (validates against rules.schema.json). Optional — omit to use the engine's DEFAULT_RULES; a partial file merges over them. See docs/design/02-interaction-engine.md." },
+        "rulesFile": { "type": "string", "description": "Path to the deterministic rules tables for the interaction engine (validates against rules.schema.json). Optional — omit to use the engine's DEFAULT_RULES; a partial file merges over them. See internal-docs/design/02-interaction-engine.md." },
         "notes": { "type": "string" }
       }
     },

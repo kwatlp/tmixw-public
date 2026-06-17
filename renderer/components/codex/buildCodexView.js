@@ -4,7 +4,7 @@
  * Everything in the Codex is an Entry (record card with Fields) inside a
  * Group inside a tab. The world-state collections stay the storage of
  * record; `world.codex` (schema v4) overlays grouping, provenance, and
- * draft flags. See docs/UIUX Wireframe/README.md.
+ * draft flags. See internal-docs/UIUX Wireframe/README.md.
  *
  * Entry: { id, name, pill?, isNew?, canAddField, draggable, fields[] }
  * Field: { key, label, kind: "text"|"pills", value?, pills?, prov?, isJson? }

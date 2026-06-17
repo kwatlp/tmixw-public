@@ -7,6 +7,8 @@
   "description": "tmixw — local voice-to-text-to-LLM narrative stack (Phase 1 pipeline, Phase 2 character + lore including vector retrieval).",
   "author": "tmíxʷ project",
   "scripts": {
+    "snapshot:public": "node scripts/build-public-snapshot.mjs",
+    "snapshot:public:dry": "node scripts/build-public-snapshot.mjs --dry-run",
     "pipeline:test": "node core/pipeline_test.js",
     "fixtures:test": "node scripts/run_fixtures.js",
     "memory:test": "node scripts/memory_test.js",
